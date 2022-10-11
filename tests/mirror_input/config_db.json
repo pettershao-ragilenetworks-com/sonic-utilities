@@ -1,0 +1,28 @@
+{
+    "MIRROR_SESSION": {
+        "session1": {
+            "direction": "BOTH",
+            "dst_port": "Ethernet30",
+            "src_port": "Ethernet40",
+            "type": "SPAN"
+        },
+        "session2": {
+            "direction": "BOTH",
+            "dst_port": "Ethernet7",
+            "src_port": "Ethernet8",
+            "type": "SPAN"
+        },
+        "session11": {
+            "direction": "RX",
+            "dst_port": "Ethernet9",
+            "src_port": "Ethernet10",
+            "type": "SPAN"
+        },
+        "session15": {
+            "direction": "TX",
+            "dst_port": "Ethernet2",
+            "src_port": "Ethernet3",
+            "type": "SPAN"
+        }
+    }
+}
