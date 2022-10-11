@@ -221,6 +221,18 @@
         "status": "255",
         "error": "N/A"
     },
+    "TRANSCEIVER_STATUS|Ethernet16": {
+        "status": "0",
+        "error": "N/A"
+    },
+    "TRANSCEIVER_STATUS|Ethernet28": {
+        "status": "0",
+        "error": "N/A"
+    },
+    "TRANSCEIVER_STATUS|Ethernet36": {
+        "status": "255",
+        "error": "Unknown"
+    },
     "CHASSIS_INFO|chassis 1": {
         "psu_num": "2"
     },
@@ -683,11 +695,19 @@
         "access": "False"
     },
     "PORT_TABLE|Ethernet0": {
+        "rmt_adv_speeds" : "10,100,1000",
         "speed" : "100000",
-        "supported_speeds": "10000,25000,40000,100000"
+        "supported_speeds": "10000,25000,40000,100000",
+        "supported_fecs": "rs,none,test",
+        "link_training_status": "not_trained"
+    },
+    "PORT_TABLE|Ethernet32": {
+        "link_training_status": "trained"
     },
     "PORT_TABLE|Ethernet112": {
-        "speed": "40000"
+        "speed": "40000",
+        "supported_fecs": "N/A",
+        "link_training_status": "off"
     },
     "PCIE_DEVICE|00:01.0": {
         "correctable|BadDLLP": "0",
@@ -822,5 +842,86 @@
         "admin_status": "up",
         "mtu":  "9100",
         "speed": "1000"
+    },
+    "LINK_TRAINING|Ethernet0": {
+        "status": "not_trained"
+    },
+    "LINK_TRAINING|Ethernet32": {
+        "status": "trained"
+    },
+    "LINK_TRAINING|Ethernet112": {
+         "status": "off"
+    },
+    "ALL_SERVICE_STATUS|mgmt-framework": {
+      "app_ready_status": "OK",
+      "fail_reason": "-",
+      "service_status": "OK",
+      "update_time": "-"
+    },
+    "ALL_SERVICE_STATUS|swss": {
+      "app_ready_status": "OK",
+      "fail_reason": "-",
+      "service_status": "OK",
+      "update_time": "-"
+    },
+    "ALL_SERVICE_STATUS|bgp": {
+      "app_ready_status": "Down",
+      "fail_reason": "Inactive",
+      "service_status": "Down",
+      "update_time": "-"
+    },
+    "ALL_SERVICE_STATUS|pmon": {
+      "app_ready_status": "OK",
+      "fail_reason": "-",
+      "service_status": "OK",
+      "update_time": "-"
+    },
+    "SYSTEM_READY|SYSTEM_STATE": {
+        "Status":"DOWN"
+    },
+    "VNET_ROUTE_TUNNEL_TABLE|test_v4_in_v4-0|160.162.191.1/32": {
+        "active_endpoints":"100.251.7.1",
+        "state":"active"
+    },
+    "VNET_ROUTE_TUNNEL_TABLE|test_v4_in_v4-0|160.163.191.1/32": {
+        "active_endpoints":"100.251.7.1",
+        "state":"active"
+    },
+    "VNET_ROUTE_TUNNEL_TABLE|Vnet_v6_in_v6-0|fddd:a156:a251::a6:1/128": {
+        "active_endpoints":"fddd:a100:a251::a10:1,fddd:a101:a251::a10:1",
+        "state":"active"
+    },
+    "BFD_SESSION_TABLE|default|default|100.251.7.1": {
+        "state":"Up",
+        "type": "async_active",
+        "local_addr" : "10.0.0.1",
+        "tx_interval" :"300",
+        "rx_interval" : "500",
+        "multiplier" : "3",
+        "multihop": "true"
+    },
+    "BFD_SESSION_TABLE|default|default|fddd:a101:a251::a10:1": {
+        "state":"Down",
+        "type": "async_active",
+        "local_addr" : "fddd:c101:a251::a10:2",
+        "tx_interval" :"300",
+        "rx_interval" : "500",
+        "multiplier" : "3",
+        "multihop": "true"
+    },
+    "ADVERTISE_NETWORK_TABLE|160.63.191.1/32": {
+        "profile": "FROM_SDN_SLB_ROUTES"
+    },
+    "ADVERTISE_NETWORK_TABLE|160.62.191.1/32": {
+        "profile": "FROM_SDN_SLB_ROUTES"
+    },
+    "ADVERTISE_NETWORK_TABLE|160.64.191.1/32": {
+        "profile": "FROM_SDN_SLB_ROUTES"
+    },
+    "ADVERTISE_NETWORK_TABLE|fddd:a150:a251::a6:1/128": {
+        "profile": "FROM_SDN_SLB_ROUTES"
+    },
+    "ADVERTISE_NETWORK_TABLE|fccc:a250:a251::a6:1/128": {
+        "profile": ""
     }
 }

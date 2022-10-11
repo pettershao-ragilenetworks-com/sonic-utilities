@@ -92,7 +92,7 @@ class AbootBootloader(Bootloader):
         self._boot_config_write(config, path=path)
 
     def _swi_image_path(self, image):
-        image_dir = image.replace(IMAGE_PREFIX, IMAGE_DIR_PREFIX)
+        image_dir = image.replace(IMAGE_PREFIX, IMAGE_DIR_PREFIX, 1)
         if is_secureboot():
            return 'flash:%s/sonic.swi' % image_dir
         return 'flash:%s/.sonic-boot.swi' % image_dir
@@ -100,19 +100,20 @@ class AbootBootloader(Bootloader):
     def get_current_image(self):
         with open('/proc/cmdline') as f:
             current = re.search(r"loop=/*(\S+)/", f.read()).group(1)
-        return current.replace(IMAGE_DIR_PREFIX, IMAGE_PREFIX)
+        return current.replace(IMAGE_DIR_PREFIX, IMAGE_PREFIX, 1)
 
     def get_installed_images(self):
         images = []
         for filename in os.listdir(HOST_PATH):
             if filename.startswith(IMAGE_DIR_PREFIX):
-                images.append(filename.replace(IMAGE_DIR_PREFIX, IMAGE_PREFIX))
+                images.append(filename.replace(IMAGE_DIR_PREFIX,
+                                               IMAGE_PREFIX, 1))
         return images
 
     def get_next_image(self):
         config = self._boot_config_read()
         match = re.search(r"flash:/*(\S+)/", config['SWI'])
-        return match.group(1).replace(IMAGE_DIR_PREFIX, IMAGE_PREFIX)
+        return match.group(1).replace(IMAGE_DIR_PREFIX, IMAGE_PREFIX, 1)
 
     def set_default_image(self, image):
         image_path = self._swi_image_path(image)
@@ -145,6 +146,11 @@ class AbootBootloader(Bootloader):
         image_path = self.get_image_path(image)
         with open(os.path.join(image_path, KERNEL_CMDLINE_NAME)) as f:
             return f.read()
+
+    def _set_image_cmdline(self, image, cmdline):
+        image_path = self.get_image_path(image)
+        with open(os.path.join(image_path, KERNEL_CMDLINE_NAME), 'w') as f:
+            return f.write(cmdline)
 
     def supports_package_migration(self, image):
         if is_secureboot():
@@ -203,6 +209,17 @@ class AbootBootloader(Bootloader):
         image = self.get_next_image()
         image_path = os.path.join(self.get_image_path(image), DEFAULT_SWI_IMAGE)
         return self._verify_secureboot_image(image_path)
+
+    def set_fips(self, image, enable):
+        fips = "1" if enable else "0"
+        cmdline = self._get_image_cmdline(image)
+        cmdline = re.sub(r' sonic_fips=[^\s]', '', cmdline) + " sonic_fips=" + fips
+        self._set_image_cmdline(image, cmdline)
+        click.echo('Done')
+
+    def get_fips(self, image):
+        cmdline = self._get_image_cmdline(image)
+        return 'sonic_fips=1' in cmdline
 
     def _verify_secureboot_image(self, image_path):
         if is_secureboot():

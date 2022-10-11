@@ -4,9 +4,11 @@ import os
 import re
 import subprocess
 import sys
+import shutil
 
 import click
 import json
+import lazy_object_proxy
 import netaddr
 
 from natsort import natsorted
@@ -183,8 +185,8 @@ class InterfaceAliasConverter(object):
         # interface_alias not in port_dict. Just return interface_alias
         return interface_alias if sub_intf_sep_idx == -1 else interface_alias + VLAN_SUB_INTERFACE_SEPARATOR + vlan_id
 
-# Global class instance for SONiC interface name to alias conversion
-iface_alias_converter = InterfaceAliasConverter()
+# Lazy global class instance for SONiC interface name to alias conversion
+iface_alias_converter = lazy_object_proxy.Proxy(lambda: InterfaceAliasConverter())
 
 def get_interface_naming_mode():
     mode = os.getenv('SONIC_CLI_IFACE_MODE')
@@ -292,7 +294,7 @@ def is_port_router_interface(config_db, port):
 
     interface_table = config_db.get_table('INTERFACE')
     for intf in interface_table:
-        if port == intf[0]:
+        if port == intf:
             return True
 
     return False
@@ -302,7 +304,7 @@ def is_pc_router_interface(config_db, pc):
 
     pc_interface_table = config_db.get_table('PORTCHANNEL_INTERFACE')
     for intf in pc_interface_table:
-        if pc == intf[0]:
+        if pc == intf:
             return True
 
     return False
@@ -593,6 +595,7 @@ def is_interface_in_config_db(config_db, interface_name):
     if (not interface_name in config_db.get_keys('VLAN_INTERFACE') and
         not interface_name in config_db.get_keys('INTERFACE') and
         not interface_name in config_db.get_keys('PORTCHANNEL_INTERFACE') and
+        not interface_name in config_db.get_keys('VLAN_SUB_INTERFACE') and
         not interface_name == 'null'):
             return False
 
@@ -661,3 +664,41 @@ def query_yes_no(question, default="yes"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
+
+
+class UserCache:
+    """ General purpose cache directory created per user """
+
+    CACHE_DIR = "/tmp/cache/"
+
+    def __init__(self, app_name=None, tag=None):
+        """ Initialize UserCache and create a cache directory if it does not exist.
+
+        Args:
+            tag (str): Tag the user cache. Different tags correspond to different cache directories even for the same user.
+        """
+        self.uid = os.getuid()
+        self.app_name = os.path.basename(sys.argv[0]) if app_name is None else app_name
+        self.cache_directory_suffix = str(self.uid) if tag is None else f"{self.uid}-{tag}"
+        self.cache_directory_app = os.path.join(self.CACHE_DIR, self.app_name)
+
+        prev_umask = os.umask(0)
+        try:
+            os.makedirs(self.cache_directory_app, exist_ok=True)
+        finally:
+            os.umask(prev_umask)
+
+        self.cache_directory = os.path.join(self.cache_directory_app, self.cache_directory_suffix)
+        os.makedirs(self.cache_directory, exist_ok=True)
+
+    def get_directory(self):
+        """ Return the cache directory path """
+        return self.cache_directory
+
+    def remove(self):
+        """ Remove the content of the cache directory """
+        shutil.rmtree(self.cache_directory)
+
+    def remove_all(self):
+        """ Remove the content of the cache for all users """
+        shutil.rmtree(self.cache_directory_app)

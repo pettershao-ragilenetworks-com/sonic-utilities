@@ -2,6 +2,7 @@ import json
 import jsonpatch
 from jsonpointer import JsonPointer
 import sonic_yang
+import sonic_yang_ext
 import subprocess
 import yang as ly
 import copy
@@ -13,6 +14,9 @@ YANG_DIR = "/usr/local/yang-models"
 SYSLOG_IDENTIFIER = "GenericConfigUpdater"
 
 class GenericConfigUpdaterError(Exception):
+    pass
+
+class EmptyTableError(ValueError):
     pass
 
 class JsonChange:
@@ -112,15 +116,85 @@ class ConfigWrapper:
     def validate_config_db_config(self, config_db_as_json):
         sy = self.create_sonic_yang_with_loaded_models()
 
+        # TODO: Move these validators to YANG models
+        supplemental_yang_validators = [self.validate_bgp_peer_group,
+                                        self.validate_lanes]
+
         try:
             tmp_config_db_as_json = copy.deepcopy(config_db_as_json)
 
             sy.loadData(tmp_config_db_as_json)
 
             sy.validate_data_tree()
-            return True, None
+
+            for supplemental_yang_validator in supplemental_yang_validators:
+                success, error = supplemental_yang_validator(config_db_as_json)
+                if not success:
+                    return success, error
         except sonic_yang.SonicYangException as ex:
             return False, ex
+
+        return True, None
+
+    def validate_lanes(self, config_db):
+        if "PORT" not in config_db:
+            return True, None
+
+        ports = config_db["PORT"]
+
+        # Validate each lane separately, make sure it is not empty, and is a number
+        port_to_lanes_map = {}
+        for port in ports:
+            attrs = ports[port]
+            if "lanes" in attrs:
+                lanes_str = attrs["lanes"]
+                lanes_with_whitespaces = lanes_str.split(",")
+                lanes = [lane.strip() for lane in lanes_with_whitespaces]
+                for lane in lanes:
+                    if not lane:
+                        return False, f"PORT '{port}' has an empty lane"
+                    if not lane.isdigit():
+                        return False, f"PORT '{port}' has an invalid lane '{lane}'"
+                port_to_lanes_map[port] = lanes
+
+        # Validate lanes are unique
+        # TODO: Move this attribute (platform with duplicated lanes in ports) to YANG models
+        dup_lanes_platforms = [
+            'x86_64-arista_7050cx3_32s',
+            'x86_64-dellemc_s5232f_c3538-r0',
+        ]
+        metadata = config_db.get("DEVICE_METADATA", {})
+        platform = metadata.get("localhost", {}).get("platform", None)
+        if platform not in dup_lanes_platforms:
+            existing = {}
+            for port in port_to_lanes_map:
+                lanes = port_to_lanes_map[port]
+                for lane in lanes:
+                    if lane in existing:
+                        return False, f"'{lane}' lane is used multiple times in PORT: {set([port, existing[lane]])}"
+                    existing[lane] = port
+        return True, None
+
+    def validate_bgp_peer_group(self, config_db):
+        if "BGP_PEER_RANGE" not in config_db:
+            return True, None
+
+        visited = {}
+        table = config_db["BGP_PEER_RANGE"]
+        for peer_group_name in table:
+            peer_group = table[peer_group_name]
+            if "ip_range" not in peer_group:
+                continue
+
+            # TODO: convert string to IpAddress object for better handling of IPs
+            # TODO: validate range intersection
+            ip_range = peer_group["ip_range"]
+            for ip in ip_range:
+                if ip in visited:
+                    return False, f"{ip} is duplicated in BGP_PEER_RANGE: {set([peer_group_name, visited[ip]])}"
+                visited[ip] = peer_group_name
+
+        return True, None
 
     def crop_tables_without_yang(self, config_db_as_json):
         sy = self.create_sonic_yang_with_loaded_models()
@@ -132,14 +206,14 @@ class ConfigWrapper:
         sy._cropConfigDB()
 
         return sy.jIn
-    
+
     def get_empty_tables(self, config):
         empty_tables = []
         for key in config.keys():
             if not(config[key]):
                 empty_tables.append(key)
         return empty_tables
-        
+
     def remove_empty_tables(self, config):
         config_with_non_empty_tables = {}
         for table in config:
@@ -375,7 +449,7 @@ class PathAddressing:
         Finds the paths referencing any line under the given 'path' within the given 'config'.
         Example:
           path: /PORT
-          config: 
+          config:
             {
                 "VLAN_MEMBER": {
                     "Vlan1000|Ethernet0": {},
@@ -520,9 +594,24 @@ class PathAddressing:
         if len(path_tokens)-1 == token_index:
             return xpath_tokens
 
+        type_1_list_model = self._get_type_1_list_model(model)
+        if type_1_list_model:
+            new_xpath_tokens = self._get_xpath_tokens_from_type_1_list(type_1_list_model, token_index+1, path_tokens, config[path_tokens[token_index]])
+            xpath_tokens.extend(new_xpath_tokens)
+            return xpath_tokens
+
         new_xpath_tokens = self._get_xpath_tokens_from_leaf(model, token_index+1, path_tokens,config[path_tokens[token_index]])
         xpath_tokens.extend(new_xpath_tokens)
         return xpath_tokens
+
+    def _get_xpath_tokens_from_type_1_list(self, model, token_index, path_tokens, config):
+        type_1_list_name = model['@name']
+        keyName = model['key']['@value']
+        value = path_tokens[token_index]
+        keyToken = f"[{keyName}='{value}']"
+        itemToken = f"{type_1_list_name}{keyToken}"
+
+        return [itemToken]
 
     def _get_xpath_tokens_from_leaf(self, model, token_index, path_tokens, config):
         token = path_tokens[token_index]
@@ -557,7 +646,7 @@ class PathAddressing:
             #   /module-name:container/leaf-list[.='val']
             # Source: Check examples in https://netopeer.liberouter.org/doc/libyang/master/html/howto_x_path.html
             return [f"{token}[.='{value}']"]
-        
+
         # checking 'uses' statement
         if not isinstance(config[token], list): # leaf-list under uses is not supported yet in sonic_yang
             table = path_tokens[0]
@@ -585,7 +674,7 @@ class PathAddressing:
     def _get_list_model(self, model, token_index, path_tokens):
         parent_container_name = path_tokens[token_index]
         clist = model.get('list')
-        # Container contains a single list, just return it 
+        # Container contains a single list, just return it
         # TODO: check if matching also by name is necessary
         if isinstance(clist, dict):
             return clist
@@ -606,6 +695,15 @@ class PathAddressing:
                                             f"but none of them match the config_db value {configdb_values_str}")
 
         return None
+
+    def _get_type_1_list_model(self, model):
+        list_name = model['@name']
+        if list_name not in sonic_yang_ext.Type_1_list_maps_model:
+            return None
+
+        # Type 1 list is expected to have a single inner list model.
+        # No need to check if it is a dictionary of list models.
+        return model.get('list')
 
     def convert_xpath_to_path(self, xpath, config, sy):
         """
@@ -688,9 +786,65 @@ class PathAddressing:
         if next_token in key_dict:
             return path_tokens
 
+        type_1_list_model = self._get_type_1_list_model(model)
+        if type_1_list_model:
+            new_path_tokens = self._get_path_tokens_from_type_1_list(type_1_list_model, token_index+1, xpath_tokens, config[path_token])
+            path_tokens.extend(new_path_tokens)
+            return path_tokens
+
         new_path_tokens = self._get_path_tokens_from_leaf(model, token_index+1, xpath_tokens, config[path_token])
         path_tokens.extend(new_path_tokens)
         return path_tokens
+
+    def _get_path_tokens_from_type_1_list(self, model, token_index, xpath_tokens, config):
+        type_1_inner_list_name = model['@name']
+
+        token = xpath_tokens[token_index]
+        list_tokens = token.split("[", 1) # split once on the first '[', first element will be the inner list name
+        inner_list_name = list_tokens[0]
+
+        if type_1_inner_list_name != inner_list_name:
+            raise GenericConfigUpdaterError(f"Type 1 inner list name '{type_1_inner_list_name}' does match xpath inner list name '{inner_list_name}'.")
+
+        key_dict = self._extract_key_dict(token)
+
+        # If no keys specified return empty tokens, as we are already inside the correct table.
+        # Also note that the type 1 inner list name in SonicYang has no correspondence in ConfigDb and is ignored.
+        # Example where VLAN_MEMBER_LIST has no specific key/value:
+        #   xpath: /sonic-dot1p-tc-map:sonic-dot1p-tc-map/DOT1P_TO_TC_MAP/DOT1P_TO_TC_MAP_LIST[name='Dot1p_to_tc_map1']/DOT1P_TO_TC_MAP
+        #   path: /DOT1P_TO_TC_MAP/Dot1p_to_tc_map1
+        if not(key_dict):
+            return []
+
+        if len(key_dict) > 1:
+            raise GenericConfigUpdaterError(f"Type 1 inner list should have only 1 key in xpath, {len(key_dict)} specified. Key dictionary: {key_dict}")
+
+        keyName = next(iter(key_dict.keys()))
+        value = key_dict[keyName]
+
+        path_tokens = [value]
+
+        # If this is the last xpath token, return the path tokens we have built so far, no need for futher checks
+        # Example:
+        #   xpath: /sonic-dot1p-tc-map:sonic-dot1p-tc-map/DOT1P_TO_TC_MAP/DOT1P_TO_TC_MAP_LIST[name='Dot1p_to_tc_map1']/DOT1P_TO_TC_MAP[dot1p='2']
+        #   path: /DOT1P_TO_TC_MAP/Dot1p_to_tc_map1/2
+        if token_index+1 >= len(xpath_tokens):
+            return path_tokens
+
+        # Checking if the next_token is actually a child leaf of the inner type 1 list, for which case
+        # just ignore the token, and return the already created ConfigDb path pointing to the whole object
+        # Example where the leaf specified is the key:
+        #   xpath: /sonic-dot1p-tc-map:sonic-dot1p-tc-map/DOT1P_TO_TC_MAP/DOT1P_TO_TC_MAP_LIST[name='Dot1p_to_tc_map1']/DOT1P_TO_TC_MAP[dot1p='2']/dot1p
+        #   path: /DOT1P_TO_TC_MAP/Dot1p_to_tc_map1/2
+        # Example where the leaf specified is not the key:
+        #   xpath: /sonic-dot1p-tc-map:sonic-dot1p-tc-map/DOT1P_TO_TC_MAP/DOT1P_TO_TC_MAP_LIST[name='Dot1p_to_tc_map1']/DOT1P_TO_TC_MAP[dot1p='2']/tc
+        #   path: /DOT1P_TO_TC_MAP/Dot1p_to_tc_map1/2
+        next_token = xpath_tokens[token_index+1]
+        leaf_model = self._get_model(model.get('leaf'), next_token)
+        if leaf_model:
+            return path_tokens
+
+        raise GenericConfigUpdaterError(f"Type 1 inner list '{type_1_inner_list_name}' does not have a child leaf named '{next_token}'")
 
     def _get_path_tokens_from_leaf(self, model, token_index, xpath_tokens, config):
         token = xpath_tokens[token_index]
@@ -727,6 +881,19 @@ class PathAddressing:
             # leaf_list_name = match.group(1)
             leaf_list_value = match.group(1)
             list_config = config[leaf_list_name]
+            # Workaround for those fields who is defined as leaf-list in YANG model but have string value in config DB
+            # No need to lookup the item index in ConfigDb since the list is represented as a string, return path to string immediately
+            # Example:
+            #   xpath: /sonic-buffer-port-egress-profile-list:sonic-buffer-port-egress-profile-list/BUFFER_PORT_EGRESS_PROFILE_LIST/BUFFER_PORT_EGRESS_PROFILE_LIST_LIST[port='Ethernet9']/profile_list[.='egress_lossy_profile']
+            #   path: /BUFFER_PORT_EGRESS_PROFILE_LIST/Ethernet9/profile_list
+            if isinstance(list_config, str):
+                return [leaf_list_name]
+
+            if not isinstance(list_config, list):
+                raise ValueError(f"list_config is expected to be of type list or string. Found {type(list_config)}.\n  " + \
+                                 f"model: {model}\n  token_index: {token_index}\n  " + \
+                                 f"xpath_tokens: {xpath_tokens}\n  config: {config}")
+
             list_idx = list_config.index(leaf_list_value)
             return [leaf_list_name, list_idx]
 

@@ -1,7 +1,7 @@
 import json
 import os
 from enum import Enum
-from .gu_common import GenericConfigUpdaterError, ConfigWrapper, \
+from .gu_common import GenericConfigUpdaterError, EmptyTableError, ConfigWrapper, \
                        DryRunConfigWrapper, PatchWrapper, genericUpdaterLogging
 from .patch_sorter import StrictPatchSorter, NonStrictPatchSorter, ConfigSplitter, \
                           TablesWithoutYangConfigSplitter, IgnorePathsFromYangConfigSplitter
@@ -54,7 +54,7 @@ class PatchApplier:
         empty_tables = self.config_wrapper.get_empty_tables(target_config)
         if empty_tables: # if there are empty tables
             empty_tables_txt = ", ".join(empty_tables)
-            raise ValueError("Given patch is not valid because it will result in empty tables " \
+            raise EmptyTableError("Given patch is not valid because it will result in empty tables " \
                              "which is not allowed in ConfigDb. " \
                             f"Table{'s' if len(empty_tables) != 1 else ''}: {empty_tables_txt}")
 
@@ -77,6 +77,8 @@ class PatchApplier:
         # Validate config updated successfully
         self.logger.log_notice("Verifying patch updates are reflected on ConfigDB.")
         new_config = self.config_wrapper.get_config_db_as_json()
+        self.changeapplier.remove_backend_tables_from_config(target_config)
+        self.changeapplier.remove_backend_tables_from_config(new_config)
         if not(self.patch_wrapper.verify_same_json(target_config, new_config)):
             raise GenericConfigUpdaterError(f"After applying patch to config, there are still some parts not updated")
 

@@ -44,7 +44,7 @@ class DBMigrator():
                      none-zero values.
               build: sequentially increase within a minor version domain.
         """
-        self.CURRENT_VERSION = 'version_2_0_5'
+        self.CURRENT_VERSION = 'version_3_0_5'
 
         self.TABLE_NAME      = 'VERSIONS'
         self.TABLE_KEY       = 'DATABASE'
@@ -485,6 +485,23 @@ class DBMigrator():
         self.migrate_qos_db_fieldval_reference_remove(qos_table_list, self.configDB, self.configDB.CONFIG_DB, '|')
         return True
 
+    def migrate_port_qos_map_global(self):
+        """
+        Generate dscp_to_tc_map for switch.
+        """
+        asics_require_global_dscp_to_tc_map = ["broadcom"]
+        if self.asic_type not in asics_require_global_dscp_to_tc_map:
+            return
+        dscp_to_tc_map_table_names = self.configDB.get_keys('DSCP_TO_TC_MAP')
+        if len(dscp_to_tc_map_table_names) == 0:
+            return
+        
+        qos_maps = self.configDB.get_table('PORT_QOS_MAP')
+        if 'global' not in qos_maps.keys():
+            # We are unlikely to have more than 1 DSCP_TO_TC_MAP in previous versions
+            self.configDB.set_entry('PORT_QOS_MAP', 'global', {"dscp_to_tc_map": dscp_to_tc_map_table_names[0]})
+            log.log_info("Created entry for global DSCP_TO_TC_MAP {}".format(dscp_to_tc_map_table_names[0]))
+
     def version_unknown(self):
         """
         version_unknown tracks all SONiC versions that doesn't have a version
@@ -621,18 +638,36 @@ class DBMigrator():
 
     def version_2_0_0(self):
         """
-        Version 2_0_0.
+        Version 2_0_0
         """
         log.log_info('Handling version_2_0_0')
-        self.migrate_config_db_port_table_for_auto_neg()
+        self.migrate_port_qos_map_global()
         self.set_version('version_2_0_1')
         return 'version_2_0_1'
 
     def version_2_0_1(self):
         """
         Version 2_0_1.
+        This is the latest version for 202012 branch 
         """
         log.log_info('Handling version_2_0_1')
+        self.set_version('version_3_0_0')
+        return 'version_3_0_0'
+
+    def version_3_0_0(self):
+        """
+        Version 3_0_0.
+        """
+        log.log_info('Handling version_3_0_0')
+        self.migrate_config_db_port_table_for_auto_neg()
+        self.set_version('version_3_0_1')
+        return 'version_3_0_1'
+
+    def version_3_0_1(self):
+        """
+        Version 3_0_1.
+        """
+        log.log_info('Handling version_3_0_1')
         warmreboot_state = self.stateDB.get(self.stateDB.STATE_DB, 'WARM_RESTART_ENABLE_TABLE|system', 'enable')
 
         if warmreboot_state != 'true':
@@ -640,34 +675,34 @@ class DBMigrator():
             for name, data in portchannel_table.items():
                 data['lacp_key'] = 'auto'
                 self.configDB.set_entry('PORTCHANNEL', name, data)
-        self.set_version('version_2_0_2')
-        return 'version_2_0_2'
+        self.set_version('version_3_0_2')
+        return 'version_3_0_2'
 
-    def version_2_0_2(self):
+    def version_3_0_2(self):
         """
-        Version 2_0_2.
+        Version 3_0_2.
         """
-        log.log_info('Handling version_2_0_2')
+        log.log_info('Handling version_3_0_2')
         self.migrate_qos_fieldval_reference_format()
-        self.set_version('version_2_0_3')
-        return 'version_2_0_3'
+        self.set_version('version_3_0_3')
+        return 'version_3_0_3'
 
 
-    def version_2_0_3(self):
+    def version_3_0_3(self):
         """
-        Version 2_0_3
+        Version 3_0_3
         """
-        log.log_info('Handling version_2_0_3')
+        log.log_info('Handling version_3_0_3')
         if self.asic_type == "mellanox":
             self.mellanox_buffer_migrator.mlnx_reclaiming_unused_buffer()
-        self.set_version('version_2_0_4')
-        return 'version_2_0_4'
+        self.set_version('version_3_0_4')
+        return 'version_3_0_4'
 
-    def version_2_0_4(self):
+    def version_3_0_4(self):
         """
-        Version 2_0_4
+        Version 3_0_4
         """
-        log.log_info('Handling version_2_0_4')
+        log.log_info('Handling version_3_0_4')
         # Migrate "pfc_enable" to "pfc_enable" and "pfcwd_sw_enable"
         # 1. pfc_enable means enable pfc on certain queues
         # 2. pfcwd_sw_enable means enable PFC software watchdog on certain queues
@@ -677,14 +712,14 @@ class DBMigrator():
             if 'pfc_enable' in v:
                 v['pfcwd_sw_enable'] = v['pfc_enable']
                 self.configDB.set_entry('PORT_QOS_MAP', k, v)
+        self.set_version('version_3_0_5')
+        return 'version_3_0_5'
 
-        return 'version_2_0_5'
-
-    def version_2_0_5(self):
+    def version_3_0_5(self):
         """
         Current latest version. Nothing to do here.
         """
-        log.log_info('Handling version_2_0_5')
+        log.log_info('Handling version_3_0_5')
         return None
 
     def get_version(self):

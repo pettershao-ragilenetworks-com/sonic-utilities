@@ -25,25 +25,25 @@ import show.main as show
 
 
 tabular_data_status_output_expected = """\
-PORT        STATUS    HEALTH     HWSTATUS      LAST_SWITCHOVER_TIME
-----------  --------  ---------  ------------  ---------------------------
-Ethernet0   active    healthy    inconsistent  2021-May-13 10:01:15.696728
-Ethernet4   standby   healthy    consistent
-Ethernet8   standby   unhealthy  consistent
-Ethernet12  unknown   unhealthy  inconsistent
-Ethernet16  standby   healthy    consistent
-Ethernet32  active    healthy    inconsistent
+PORT        STATUS    SERVER_STATUS    HEALTH     HWSTATUS      LAST_SWITCHOVER_TIME
+----------  --------  ---------------  ---------  ------------  ---------------------------
+Ethernet0   active    active           healthy    inconsistent  2021-May-13 10:01:15.696728
+Ethernet4   standby   standby          healthy    consistent
+Ethernet8   standby   standby          unhealthy  consistent
+Ethernet12  active    unknown          unhealthy  inconsistent
+Ethernet16  standby   standby          healthy    consistent
+Ethernet32  active    active           healthy    inconsistent
 """
 
 tabular_data_status_output_expected_alias = """\
-PORT    STATUS    HEALTH     HWSTATUS      LAST_SWITCHOVER_TIME
-------  --------  ---------  ------------  ---------------------------
-etp1    active    healthy    inconsistent  2021-May-13 10:01:15.696728
-etp2    standby   healthy    consistent
-etp3    standby   unhealthy  consistent
-etp4    unknown   unhealthy  inconsistent
-etp5    standby   healthy    consistent
-etp9    active    healthy    inconsistent
+PORT    STATUS    SERVER_STATUS    HEALTH     HWSTATUS      LAST_SWITCHOVER_TIME
+------  --------  ---------------  ---------  ------------  ---------------------------
+etp1    active    active           healthy    inconsistent  2021-May-13 10:01:15.696728
+etp2    standby   standby          healthy    consistent
+etp3    standby   standby          unhealthy  consistent
+etp4    active    unknown          unhealthy  inconsistent
+etp5    standby   standby          healthy    consistent
+etp9    active    active           healthy    inconsistent
 """
 
 
@@ -52,36 +52,42 @@ json_data_status_output_expected = """\
     "MUX_CABLE": {
         "Ethernet0": {
             "STATUS": "active",
+            "SERVER_STATUS": "active",
             "HEALTH": "healthy",
             "HWSTATUS": "inconsistent",
             "LAST_SWITCHOVER_TIME": "2021-May-13 10:01:15.696728"
         },
         "Ethernet4": {
             "STATUS": "standby",
+            "SERVER_STATUS": "standby",
             "HEALTH": "healthy",
             "HWSTATUS": "consistent",
             "LAST_SWITCHOVER_TIME": ""
         },
         "Ethernet8": {
             "STATUS": "standby",
+            "SERVER_STATUS": "standby",
             "HEALTH": "unhealthy",
             "HWSTATUS": "consistent",
             "LAST_SWITCHOVER_TIME": ""
         },
         "Ethernet12": {
-            "STATUS": "unknown",
+            "STATUS": "active",
+            "SERVER_STATUS": "unknown",
             "HEALTH": "unhealthy",
             "HWSTATUS": "inconsistent",
             "LAST_SWITCHOVER_TIME": ""
         },
         "Ethernet16": {
             "STATUS": "standby",
+            "SERVER_STATUS": "standby",
             "HEALTH": "healthy",
             "HWSTATUS": "consistent",
             "LAST_SWITCHOVER_TIME": ""
         },
         "Ethernet32": {
             "STATUS": "active",
+            "SERVER_STATUS": "active",
             "HEALTH": "healthy",
             "HWSTATUS": "inconsistent",
             "LAST_SWITCHOVER_TIME": ""
@@ -95,36 +101,42 @@ json_data_status_output_expected_alias = """\
     "MUX_CABLE": {
         "etp1": {
             "STATUS": "active",
+            "SERVER_STATUS": "active",
             "HEALTH": "healthy",
             "HWSTATUS": "inconsistent",
             "LAST_SWITCHOVER_TIME": "2021-May-13 10:01:15.696728"
         },
         "etp2": {
             "STATUS": "standby",
+            "SERVER_STATUS": "standby",
             "HEALTH": "healthy",
             "HWSTATUS": "consistent",
             "LAST_SWITCHOVER_TIME": ""
         },
         "etp3": {
             "STATUS": "standby",
+            "SERVER_STATUS": "standby",
             "HEALTH": "unhealthy",
             "HWSTATUS": "consistent",
             "LAST_SWITCHOVER_TIME": ""
         },
         "etp4": {
-            "STATUS": "unknown",
+            "STATUS": "active",
+            "SERVER_STATUS": "unknown",
             "HEALTH": "unhealthy",
             "HWSTATUS": "inconsistent",
             "LAST_SWITCHOVER_TIME": ""
         },
         "etp5": {
             "STATUS": "standby",
+            "SERVER_STATUS": "standby",
             "HEALTH": "healthy",
             "HWSTATUS": "consistent",
             "LAST_SWITCHOVER_TIME": ""
         },
         "etp9": {
             "STATUS": "active",
+            "SERVER_STATUS": "active",
             "HEALTH": "healthy",
             "HWSTATUS": "inconsistent",
             "LAST_SWITCHOVER_TIME": ""
@@ -138,30 +150,30 @@ tabular_data_config_output_expected = """\
 SWITCH_NAME    PEER_TOR
 -------------  ----------
 sonic-switch   10.2.2.2
-port        state    ipv4      ipv6
-----------  -------  --------  --------
+port        state    ipv4      ipv6      cable_type      soc_ipv4
+----------  -------  --------  --------  --------------  ----------
 Ethernet0   active   10.2.1.1  e800::46
 Ethernet4   auto     10.3.1.1  e801::46
 Ethernet8   active   10.4.1.1  e802::46
 Ethernet12  active   10.4.1.1  e802::46
-Ethernet16  standby  10.1.1.1  fc00::75
+Ethernet16  standby  10.1.1.1  fc00::75  active-standby
 Ethernet28  manual   10.1.1.1  fc00::75
-Ethernet32  auto     10.1.1.1  fc00::75
+Ethernet32  auto     10.1.1.1  fc00::75  active-active   10.1.1.2
 """
 
 tabular_data_config_output_expected_alias = """\
 SWITCH_NAME    PEER_TOR
 -------------  ----------
 sonic-switch   10.2.2.2
-port    state    ipv4      ipv6
-------  -------  --------  --------
+port    state    ipv4      ipv6      cable_type      soc_ipv4
+------  -------  --------  --------  --------------  ----------
 etp1    active   10.2.1.1  e800::46
 etp2    auto     10.3.1.1  e801::46
 etp3    active   10.4.1.1  e802::46
 etp4    active   10.4.1.1  e802::46
-etp5    standby  10.1.1.1  fc00::75
+etp5    standby  10.1.1.1  fc00::75  active-standby
 etp8    manual   10.1.1.1  fc00::75
-etp9    auto     10.1.1.1  fc00::75
+etp9    auto     10.1.1.1  fc00::75  active-active   10.1.1.2
 """
 
 json_data_status_config_output_expected = """\
@@ -201,7 +213,8 @@ json_data_status_config_output_expected = """\
                 "STATE": "standby",
                 "SERVER": {
                     "IPv4": "10.1.1.1",
-                    "IPv6": "fc00::75"
+                    "IPv6": "fc00::75",
+                    "cable_type": "active-standby"
                 }
             },
             "Ethernet28": {
@@ -215,7 +228,9 @@ json_data_status_config_output_expected = """\
                 "STATE": "auto",
                 "SERVER": {
                     "IPv4": "10.1.1.1",
-                    "IPv6": "fc00::75"
+                    "IPv6": "fc00::75",
+                    "cable_type": "active-active",
+                    "soc_ipv4": "10.1.1.2"
                 }
             }
         }
@@ -260,7 +275,8 @@ json_data_status_config_output_expected_alias = """\
                 "STATE": "standby",
                 "SERVER": {
                     "IPv4": "10.1.1.1",
-                    "IPv6": "fc00::75"
+                    "IPv6": "fc00::75",
+                    "cable_type": "active-standby"
                 }
             },
             "etp8": {
@@ -274,7 +290,9 @@ json_data_status_config_output_expected_alias = """\
                 "STATE": "auto",
                 "SERVER": {
                     "IPv4": "10.1.1.1",
-                    "IPv6": "fc00::75"
+                    "IPv6": "fc00::75",
+                    "cable_type": "active-active",
+                    "soc_ipv4": "10.1.1.2"
                 }
             }
         }
@@ -457,6 +475,48 @@ show_muxcable_packetloss_expected_output_json="""\
     "pck_loss_count": "612",
     "pck_expected_count": "840"
 }
+"""
+
+show_muxcable_tunnel_route_expected_output_json="""\
+{
+    "TUNNEL_ROUTE": {
+        "Ethernet0": {
+            "server_ipv4": {
+                "DEST": "10.2.1.1"
+            }
+        },
+        "Ethernet4": {
+            "server_ipv4": {
+                "DEST": "10.3.1.1"
+            }
+        }
+    }
+}
+"""
+
+show_muxcable_tunnel_route_expected_output="""\
+PORT       DEST_TYPE    DEST_ADDRESS
+---------  -----------  --------------
+Ethernet0  server_ipv4  10.2.1.1
+Ethernet4  server_ipv4  10.3.1.1
+"""
+
+show_muxcable_tunnel_route_expected_output_port_json="""\
+{
+    "TUNNEL_ROUTE": {
+        "Ethernet0": {
+            "server_ipv4": {
+                "DEST": "10.2.1.1"
+            }
+        }
+    }
+}
+"""
+
+show_muxcable_tunnel_route_expected_port_output="""\
+PORT       DEST_TYPE    DEST_ADDRESS
+---------  -----------  --------------
+Ethernet0  server_ipv4  10.2.1.1
 """
 
 class TestMuxcable(object):
@@ -2094,6 +2154,94 @@ class TestMuxcable(object):
                                ["Ethernet0", "--json"], obj=db)
         assert result.exit_code == 0
         assert result.output == show_muxcable_packetloss_expected_output_json
+
+    @mock.patch('utilities_common.platform_sfputil_helper.get_logical_list', mock.MagicMock(return_value=["Ethernet0", "Ethernet12"]))
+    @mock.patch('utilities_common.platform_sfputil_helper.get_asic_id_for_logical_port', mock.MagicMock(return_value=0))
+    @mock.patch('show.muxcable.platform_sfputil', mock.MagicMock(return_value={0: ["Ethernet12", "Ethernet0"]}))
+    @mock.patch('utilities_common.platform_sfputil_helper.logical_port_name_to_physical_port_list', mock.MagicMock(return_value=[0]))
+    def test_show_muxcable_tunnel_route(self):
+        runner = CliRunner()
+        db = Db()
+
+        result = runner.invoke(show.cli.commands["muxcable"].commands["tunnel-route"], obj=db)
+
+        assert result.exit_code == 0
+        assert result.output == show_muxcable_tunnel_route_expected_output
+    
+    @mock.patch('utilities_common.platform_sfputil_helper.get_logical_list', mock.MagicMock(return_value=["Ethernet0", "Ethernet12"]))
+    @mock.patch('utilities_common.platform_sfputil_helper.get_asic_id_for_logical_port', mock.MagicMock(return_value=0))
+    @mock.patch('show.muxcable.platform_sfputil', mock.MagicMock(return_value={0: ["Ethernet12", "Ethernet0"]}))
+    @mock.patch('utilities_common.platform_sfputil_helper.logical_port_name_to_physical_port_list', mock.MagicMock(return_value=[0]))
+    def test_show_muxcable_tunnel_route_json(self):
+        runner = CliRunner()
+        db = Db()
+        
+        result = runner.invoke(show.cli.commands["muxcable"].commands["tunnel-route"],
+                               ["--json"], obj=db)
+
+        assert result.exit_code == 0
+        assert result.output == show_muxcable_tunnel_route_expected_output_json
+
+    @mock.patch('utilities_common.platform_sfputil_helper.get_logical_list', mock.MagicMock(return_value=["Ethernet0", "Ethernet12"]))
+    @mock.patch('utilities_common.platform_sfputil_helper.get_asic_id_for_logical_port', mock.MagicMock(return_value=0))
+    @mock.patch('show.muxcable.platform_sfputil', mock.MagicMock(return_value={0: ["Ethernet12", "Ethernet0"]}))
+    @mock.patch('utilities_common.platform_sfputil_helper.logical_port_name_to_physical_port_list', mock.MagicMock(return_value=[0]))
+    def test_show_muxcable_tunnel_route_port(self):
+        runner = CliRunner()
+        db = Db()
+
+        result = runner.invoke(show.cli.commands["muxcable"].commands["tunnel-route"],
+                               ["Ethernet0"], obj=db)
+
+        assert result.exit_code == 0
+        assert result.output == show_muxcable_tunnel_route_expected_port_output
+
+    @mock.patch('utilities_common.platform_sfputil_helper.get_logical_list', mock.MagicMock(return_value=["Ethernet0", "Ethernet12"]))
+    @mock.patch('utilities_common.platform_sfputil_helper.get_asic_id_for_logical_port', mock.MagicMock(return_value=0))
+    @mock.patch('show.muxcable.platform_sfputil', mock.MagicMock(return_value={0: ["Ethernet12", "Ethernet0"]}))
+    @mock.patch('utilities_common.platform_sfputil_helper.logical_port_name_to_physical_port_list', mock.MagicMock(return_value=[0]))
+    def test_show_muxcable_tunnel_route_json_port(self):
+        runner = CliRunner()
+        db = Db()
+
+        result = runner.invoke(show.cli.commands["muxcable"].commands["tunnel-route"],
+                               ["Ethernet0", "--json"], obj=db)
+        assert result.exit_code == 0
+        assert result.output == show_muxcable_tunnel_route_expected_output_port_json
+
+    @mock.patch('config.muxcable.swsscommon.DBConnector', mock.MagicMock(return_value=0))
+    @mock.patch('config.muxcable.swsscommon.Table', mock.MagicMock(return_value=0))
+    @mock.patch('config.muxcable.swsscommon.Select', mock.MagicMock(return_value=0))
+    def test_config_muxcable_telemetry_enable_without_patch(self):
+        runner = CliRunner()
+        db = Db()
+
+        result = runner.invoke(config.config.commands["muxcable"].commands["telemetry"], [
+                               "enable"], obj=db)
+        assert result.exit_code == 1
+
+    @mock.patch('config.muxcable.swsscommon.DBConnector', mock.MagicMock(return_value=0))
+    @mock.patch('config.muxcable.swsscommon.Table', mock.MagicMock(return_value=0))
+    @mock.patch('config.muxcable.swsscommon.Select', mock.MagicMock(return_value=0))
+    def test_config_muxcable_telemetry_disable_without_patch(self):
+        runner = CliRunner()
+        db = Db()
+
+        result = runner.invoke(config.config.commands["muxcable"].commands["telemetry"], [
+                               "disable"], obj=db)
+        assert result.exit_code == 1
+
+    @mock.patch('config.muxcable.swsscommon.DBConnector', mock.MagicMock(return_value=0))
+    @mock.patch('config.muxcable.swsscommon.Table', mock.MagicMock(return_value=0))
+    @mock.patch('config.muxcable.swsscommon.Select', mock.MagicMock(return_value=0))
+    @mock.patch('config.muxcable.update_configdb_ycable_telemetry_data', mock.MagicMock(return_value=0))
+    def test_config_muxcable_telemetry_enable(self):
+        runner = CliRunner()
+        db = Db()
+
+        result = runner.invoke(config.config.commands["muxcable"].commands["telemetry"], [
+                               "enable"], obj=db)
+        assert result.exit_code == 0
 
     @classmethod
     def teardown_class(cls):

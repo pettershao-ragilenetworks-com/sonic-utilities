@@ -186,6 +186,158 @@ class TestConfigWrapper(unittest.TestCase):
         self.assertEqual(expected, actual)
         self.assertIsNotNone(error)
 
+    def test_validate_bgp_peer_group__valid_non_intersecting_ip_ranges__returns_true(self):
+        # Arrange
+        config_wrapper = gu_common.ConfigWrapper()
+        config = {
+            "BGP_PEER_RANGE":
+            {
+                "BGPSLBPassive": {
+                    "ip_range": ["1.1.1.1/31", "10.10.10.10/16", "100.100.100.100/24"]
+                },
+                "BgpVac": {
+                    "ip_range": ["2.2.2.2/31", "20.20.20.20/16", "200.200.200.200/24"]
+                }
+            }
+        }
+
+        # Act
+        actual, error = config_wrapper.validate_bgp_peer_group(config)
+
+        # Assert
+        self.assertTrue(actual)
+        self.assertIsNone(error)
+
+    def test_validate_bgp_peer_group__same_ip_prefix__return_false(self):
+        # duplicate v4 within same ip_range
+        self.check_validate_bgp_peer_group(
+            ["1.1.1.1/16", "1.1.1.1/16"],
+            duplicated_ip="1.1.1.1/16")
+        # duplicate v4 within different ip_ranges
+        self.check_validate_bgp_peer_group(
+            ["1.1.1.1/16"],
+            ["1.1.1.1/16"],
+            duplicated_ip="1.1.1.1/16")
+        # duplicate v4 within different ip_ranges, but many ips
+        self.check_validate_bgp_peer_group(
+            ["1.1.1.1/16", "1.1.1.1/31", "10.10.10.10/16", "100.100.100.100/24"],
+            ["2.2.2.2/31", "20.20.20.20/16", "200.200.200.200/24", "1.1.1.1/16"],
+            duplicated_ip="1.1.1.1/16")
+        # duplicate v6 within same ip_range
+        self.check_validate_bgp_peer_group(
+            ["fc00:1::32/16", "fc00:1::32/16"],
+            duplicated_ip="fc00:1::32/16")
+        # duplicate v6 within different ip_ranges
+        self.check_validate_bgp_peer_group(
+            ["fc00:1::32/16"],
+            ["fc00:1::32/16"],
+            duplicated_ip="fc00:1::32/16")
+        # duplicate v6 within different ip_ranges, but many ips
+        self.check_validate_bgp_peer_group(
+            ["fc00:1::32/16", "fc00:1::32/31", "10:1::1/16", "100:1::1/24"],
+            ["2:1::1/31", "20:1::1/16", "200:1::1/24", "fc00:1::32/16"],
+            duplicated_ip="fc00:1::32/16")
+
+    def check_validate_bgp_peer_group(self, ip_range, other_ip_range=[], duplicated_ip=None):
+        # Arrange
+        config_wrapper = gu_common.ConfigWrapper()
+        config = {
+            "BGP_PEER_RANGE":
+            {
+                "BGPSLBPassive": {
+                    "ip_range": ip_range
+                },
+                "BgpVac": {
+                    "ip_range": other_ip_range
+                },
+            }
+        }
+
+        # Act
+        actual, error = config_wrapper.validate_bgp_peer_group(config)
+
+        # Assert
+        self.assertFalse(actual)
+        self.assertTrue(duplicated_ip in error)
+
+    def test_validate_lanes__no_port_table__success(self):
+        config = {"ACL_TABLE": {}}
+        self.validate_lanes(config)
+
+    def test_validate_lanes__empty_port_table__success(self):
+        config = {"PORT": {}}
+        self.validate_lanes(config)
+
+    def test_validate_lanes__empty_lane__failure(self):
+        config = {"PORT": {"Ethernet0": {"lanes": "", "speed":"10000"}}}
+        self.validate_lanes(config, 'has an empty lane')
+
+    def test_validate_lanes__whitespace_lane__failure(self):
+        config = {"PORT": {"Ethernet0": {"lanes": " ", "speed":"10000"}}}
+        self.validate_lanes(config, 'has an empty lane')
+
+    def test_validate_lanes__non_digits_lane__failure(self):
+        config = {"PORT": {"Ethernet0": {"lanes": "10g", "speed":"10000"}}}
+        self.validate_lanes(config, "has an invalid lane '10g'")
+
+    def test_validate_lanes__space_between_digits_lane__failure(self):
+        config = {"PORT": {"Ethernet0": {"lanes": " 1 0  ", "speed":"10000"}}}
+        self.validate_lanes(config, "has an invalid lane '1 0'")
+
+    def test_validate_lanes__single_valid_lane__success(self):
+        config = {"PORT": {"Ethernet0": {"lanes": "66", "speed":"10000"}}}
+        self.validate_lanes(config)
+
+    def test_validate_lanes__different_valid_lanes_single_port__success(self):
+        config = {"PORT": {"Ethernet0": {"lanes": "66, 67, 68", "speed":"10000"}}}
+        self.validate_lanes(config)
+
+    def test_validate_lanes__different_valid_and_invalid_empty_lanes_single_port__failure(self):
+        config = {"PORT": {"Ethernet0": {"lanes": "66, , 68", "speed":"10000"}}}
+        self.validate_lanes(config, 'has an empty lane')
+
+    def test_validate_lanes__different_valid_and_invalid_non_digit_lanes_single_port__failure(self):
+        config = {"PORT": {"Ethernet0": {"lanes": "66, 67, 10g", "speed":"10000"}}}
+        self.validate_lanes(config, "has an invalid lane '10g'")
+
+    def test_validate_lanes__different_valid_lanes_multi_ports__success(self):
+        config = {"PORT": {
+            "Ethernet0": {"lanes": " 64 , 65 \t", "speed":"10000"},
+            "Ethernet1": {"lanes": " 66 , 67 \r\t\n, 68 ", "speed":"10000"},
+            }}
+        self.validate_lanes(config)
+
+    def test_validate_lanes__same_valid_lanes_single_port__failure(self):
+        config = {"PORT": {"Ethernet0": {"lanes": "65 \r\t\n, 65", "speed":"10000"}}}
+        self.validate_lanes(config, '65')
+
+    def test_validate_lanes__same_valid_lanes_multi_ports__failure(self):
+        config = {"PORT": {
+            "Ethernet0": {"lanes": "64, 65, 67", "speed":"10000"},
+            "Ethernet1": {"lanes": "66, 67, 68", "speed":"10000"},
+            }}
+        self.validate_lanes(config, '67')
+
+    def test_validate_lanes__same_valid_lanes_multi_ports_no_spaces__failure(self):
+        config = {"PORT": {
+            "Ethernet0": {"lanes": "64,65,67", "speed":"10000"},
+            "Ethernet1": {"lanes": "66,67,68", "speed":"10000"},
+            }}
+        self.validate_lanes(config, '67')
+
+    def validate_lanes(self, config_db, expected_error=None):
+        # Arrange
+        config_wrapper = gu_common.ConfigWrapper()
+        expected = expected_error is None # if expected_error is None, then the input is valid
+
+        # Act
+        actual, error = config_wrapper.validate_lanes(config_db)
+
+        # Assert
+        self.assertEqual(expected, actual)
+        if expected_error:
+            self.assertTrue(expected_error in error)
+
     def test_crop_tables_without_yang__returns_cropped_config_db_as_json(self):
         # Arrange
         config_wrapper = gu_common.ConfigWrapper()
@@ -705,6 +857,19 @@ class TestPathAddressing(unittest.TestCase):
         # Assert
         self.assertEqual(expected_config, config)
 
+    def test_find_ref_paths__ref_path_is_leaflist_in_yang_but_string_in_config_db__path_to_string_returned(self):
+        # Arrange
+        path = "/BUFFER_PROFILE/egress_lossless_profile"
+        expected = [
+            "/BUFFER_PORT_EGRESS_PROFILE_LIST/Ethernet9/profile_list",
+        ]
+
+        # Act
+        actual = self.path_addressing.find_ref_paths(path, Files.CONFIG_DB_WITH_PROFILE_LIST)
+
+        # Assert
+        self.assertEqual(expected, actual)
+
     def test_convert_path_to_xpath(self):
         def check(path, xpath, config=None):
             if not config:
@@ -765,6 +930,18 @@ class TestPathAddressing(unittest.TestCase):
         check(path="/LLDP/GLOBAL/mode",
               xpath="/sonic-lldp:sonic-lldp/LLDP/GLOBAL/mode",
               config=Files.CONFIG_DB_WITH_LLDP)
+        check(path="/BUFFER_PORT_EGRESS_PROFILE_LIST/Ethernet9/profile_list",
+              xpath="/sonic-buffer-port-egress-profile-list:sonic-buffer-port-egress-profile-list/BUFFER_PORT_EGRESS_PROFILE_LIST/BUFFER_PORT_EGRESS_PROFILE_LIST_LIST[port='Ethernet9']/profile_list",
+              config=Files.CONFIG_DB_WITH_PROFILE_LIST)
+        check(path="/DOT1P_TO_TC_MAP/Dot1p_to_tc_map1",
+              xpath="/sonic-dot1p-tc-map:sonic-dot1p-tc-map/DOT1P_TO_TC_MAP/DOT1P_TO_TC_MAP_LIST[name='Dot1p_to_tc_map1']",
+              config=Files.CONFIG_DB_WITH_TYPE1_TABLES)
+        check(path="/DOT1P_TO_TC_MAP/Dot1p_to_tc_map1/2",
+              xpath="/sonic-dot1p-tc-map:sonic-dot1p-tc-map/DOT1P_TO_TC_MAP/DOT1P_TO_TC_MAP_LIST[name='Dot1p_to_tc_map1']/DOT1P_TO_TC_MAP[dot1p='2']",
+              config=Files.CONFIG_DB_WITH_TYPE1_TABLES)
+        check(path="/EXP_TO_FC_MAP/Exp_to_fc_map2/4",
+              xpath="/sonic-exp-fc-map:sonic-exp-fc-map/EXP_TO_FC_MAP/EXP_TO_FC_MAP_LIST[name='Exp_to_fc_map2']/EXP_TO_FC_MAP[exp='4']",
+              config=Files.CONFIG_DB_WITH_TYPE1_TABLES)
 
     def test_convert_xpath_to_path(self):
         def check(xpath, path, config=None):
@@ -840,6 +1017,30 @@ class TestPathAddressing(unittest.TestCase):
         check(xpath="/sonic-lldp:sonic-lldp/LLDP/GLOBAL/mode",
               path="/LLDP/GLOBAL/mode",
               config=Files.CONFIG_DB_WITH_LLDP)
+        check(xpath="/sonic-buffer-port-egress-profile-list:sonic-buffer-port-egress-profile-list/BUFFER_PORT_EGRESS_PROFILE_LIST/BUFFER_PORT_EGRESS_PROFILE_LIST_LIST[port='Ethernet9']/profile_list",
+              path="/BUFFER_PORT_EGRESS_PROFILE_LIST/Ethernet9/profile_list",
+              config=Files.CONFIG_DB_WITH_PROFILE_LIST)
+        check(xpath="/sonic-buffer-port-egress-profile-list:sonic-buffer-port-egress-profile-list/BUFFER_PORT_EGRESS_PROFILE_LIST/BUFFER_PORT_EGRESS_PROFILE_LIST_LIST[port='Ethernet9']/profile_list[.='egress_lossy_profile']",
+              path="/BUFFER_PORT_EGRESS_PROFILE_LIST/Ethernet9/profile_list",
+              config=Files.CONFIG_DB_WITH_PROFILE_LIST)
+        check(xpath="/sonic-dot1p-tc-map:sonic-dot1p-tc-map/DOT1P_TO_TC_MAP/DOT1P_TO_TC_MAP_LIST[name='Dot1p_to_tc_map1']",
+              path="/DOT1P_TO_TC_MAP/Dot1p_to_tc_map1",
+              config=Files.CONFIG_DB_WITH_TYPE1_TABLES)
+        check(xpath="/sonic-dot1p-tc-map:sonic-dot1p-tc-map/DOT1P_TO_TC_MAP/DOT1P_TO_TC_MAP_LIST[name='Dot1p_to_tc_map1']/DOT1P_TO_TC_MAP",
+              path="/DOT1P_TO_TC_MAP/Dot1p_to_tc_map1",
+              config=Files.CONFIG_DB_WITH_TYPE1_TABLES)
+        check(xpath="/sonic-dot1p-tc-map:sonic-dot1p-tc-map/DOT1P_TO_TC_MAP/DOT1P_TO_TC_MAP_LIST[name='Dot1p_to_tc_map1']/DOT1P_TO_TC_MAP[dot1p='2']",
+              path="/DOT1P_TO_TC_MAP/Dot1p_to_tc_map1/2",
+              config=Files.CONFIG_DB_WITH_TYPE1_TABLES)
+        check(xpath="/sonic-dot1p-tc-map:sonic-dot1p-tc-map/DOT1P_TO_TC_MAP/DOT1P_TO_TC_MAP_LIST[name='Dot1p_to_tc_map1']/DOT1P_TO_TC_MAP[dot1p='2']/dot1p",
+              path="/DOT1P_TO_TC_MAP/Dot1p_to_tc_map1/2",
+              config=Files.CONFIG_DB_WITH_TYPE1_TABLES)
+        check(xpath="/sonic-dot1p-tc-map:sonic-dot1p-tc-map/DOT1P_TO_TC_MAP/DOT1P_TO_TC_MAP_LIST[name='Dot1p_to_tc_map1']/DOT1P_TO_TC_MAP[dot1p='2']/tc",
+              path="/DOT1P_TO_TC_MAP/Dot1p_to_tc_map1/2",
+              config=Files.CONFIG_DB_WITH_TYPE1_TABLES)
+        check(xpath="/sonic-exp-fc-map:sonic-exp-fc-map/EXP_TO_FC_MAP/EXP_TO_FC_MAP_LIST[name='Exp_to_fc_map2']/EXP_TO_FC_MAP[exp='4']",
+              path="/EXP_TO_FC_MAP/Exp_to_fc_map2/4",
+              config=Files.CONFIG_DB_WITH_TYPE1_TABLES)
 
     def test_has_path(self):
         def check(config, path, expected):

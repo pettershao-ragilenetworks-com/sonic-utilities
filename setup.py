@@ -143,11 +143,16 @@ setup(
         'scripts/watermarkstat',
         'scripts/watermarkcfg',
         'scripts/sonic-kdump-config',
+        'scripts/sonic-bootchart',
         'scripts/centralize_database',
         'scripts/null_route_helper',
         'scripts/coredump_gen_handler.py',
+        'scripts/memory_threshold_check.py',
+        'scripts/memory_threshold_check_handler.py',
         'scripts/techsupport_cleanup.py',
-        'scripts/check_db_integrity.py'
+        'scripts/storm_control.py',
+        'scripts/check_db_integrity.py',
+        'scripts/sysreadyshow'
     ],
     entry_points={
         'console_scripts': [
@@ -207,11 +212,11 @@ setup(
         'sonic-platform-common',
         'sonic-py-common',
         'sonic-yang-mgmt',
-        'swsssdk>=2.0.1',
         'tabulate==0.8.2',
         'toposort==1.6',
         'www-authenticate==0.9.2',
         'xmltodict==0.12.0',
+        'lazy-object-proxy',
     ],
     setup_requires= [
         'pytest-runner',

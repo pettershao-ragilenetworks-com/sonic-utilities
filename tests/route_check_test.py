@@ -24,6 +24,7 @@ RESULT = "res"
 OP_SET = "SET"
 OP_DEL = "DEL"
 
+NEIGH_TABLE = 'NEIGH_TABLE'
 ROUTE_TABLE = 'ROUTE_TABLE'
 VNET_ROUTE_TABLE = 'VNET_ROUTE_TABLE'
 INTF_TABLE = 'INTF_TABLE'
@@ -293,6 +294,49 @@ test_data = {
                 }
             }
         }
+    },
+    "7": {
+        DESCR: "dualtor standalone tunnel route case",
+        ARGS: "route_check",
+        PRE: {
+            APPL_DB: {
+                NEIGH_TABLE: {
+                    "Vlan1000:fc02:1000::99": { "neigh": "00:00:00:00:00:00", "family": "IPv6"}
+                }
+            },
+            ASIC_DB: {
+                RT_ENTRY_TABLE: {
+                    RT_ENTRY_KEY_PREFIX + "fc02:1000::99/128" + RT_ENTRY_KEY_SUFFIX: {},
+                }
+            }
+        }
+    },
+    "8": {
+        DESCR: "Good one with VRF routes",
+        ARGS: "route_check",
+        PRE: {
+            APPL_DB: {
+                ROUTE_TABLE: {
+                    "Vrf1:0.0.0.0/0" : { "ifname": "portchannel0" },
+                    "Vrf1:10.10.196.12/31" : { "ifname": "portchannel0" },
+                    "Vrf1:10.10.196.20/31" : { "ifname": "portchannel0" }
+                },
+                INTF_TABLE: {
+                    "PortChannel1013:10.10.196.24/31": {},
+                    "PortChannel1023:2603:10b0:503:df4::5d/126": {},
+                    "PortChannel1024": {}
+                }
+            },
+            ASIC_DB: {
+                RT_ENTRY_TABLE: {
+                    RT_ENTRY_KEY_PREFIX + "10.10.196.12/31" + RT_ENTRY_KEY_SUFFIX: {},
+                    RT_ENTRY_KEY_PREFIX + "10.10.196.20/31" + RT_ENTRY_KEY_SUFFIX: {},
+                    RT_ENTRY_KEY_PREFIX + "10.10.196.24/32" + RT_ENTRY_KEY_SUFFIX: {},
+                    RT_ENTRY_KEY_PREFIX + "2603:10b0:503:df4::5d/128" + RT_ENTRY_KEY_SUFFIX: {},
+                    RT_ENTRY_KEY_PREFIX + "0.0.0.0/0" + RT_ENTRY_KEY_SUFFIX: {}
+                }
+            }
+        }
     }
 }
 
@@ -374,6 +418,11 @@ class Table:
     def get(self, key):
         ret = copy.deepcopy(self.data.get(key, {}))
         return (True, ret)
+
+
+    def hget(self, key, field):
+        ret = copy.deepcopy(self.data.get(key, {}).get(field, {}))
+        return True, ret
 
 
 db_conns = {"APPL_DB": APPL_DB, "ASIC_DB": ASIC_DB}

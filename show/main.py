@@ -5,7 +5,9 @@ import sys
 import re
 
 import click
+import lazy_object_proxy
 import utilities_common.cli as clicommon
+from sonic_py_common import multi_asic
 import utilities_common.multi_asic as multi_asic_util
 from importlib import reload
 from natsort import natsorted
@@ -58,6 +60,7 @@ from . import vxlan
 from . import system_health
 from . import warm_restart
 from . import plugins
+from . import syslog
 
 # Global Variables
 PLATFORM_JSON = 'platform.json'
@@ -125,10 +128,95 @@ def run_command(command, display_cmd=False, return_cmd=False):
     if rc != 0:
         sys.exit(rc)
 
-# Global class instance for SONiC interface name to alias conversion
-iface_alias_converter = clicommon.InterfaceAliasConverter()
+# Lazy global class instance for SONiC interface name to alias conversion
+iface_alias_converter = lazy_object_proxy.Proxy(lambda: clicommon.InterfaceAliasConverter())
 
+#
+# Display all storm-control data 
+#
+def display_storm_all():
+    """ Show storm-control """
+    header = ['Interface Name', 'Storm Type', 'Rate (kbps)']
+    body = []
 
+    config_db = ConfigDBConnector()
+    config_db.connect()
+
+    table = config_db.get_table('PORT_STORM_CONTROL')
+
+    #To avoid further looping below
+    if not table:
+        return
+
+    sorted_table = natsorted(table)
+
+    for storm_key in sorted_table:
+        interface_name = storm_key[0]
+        storm_type = storm_key[1]
+        #interface_name, storm_type = storm_key.split(':')
+        data = config_db.get_entry('PORT_STORM_CONTROL', storm_key)
+
+        if not data:
+            return
+
+        kbps = data['kbps']
+
+        body.append([interface_name, storm_type, kbps])
+
+    click.echo(tabulate(body, header, tablefmt="grid"))
+
+#
+# Get storm-control configurations per interface append to body
+#
+def get_storm_interface(intf, body):
+    storm_type_list = ['broadcast','unknown-unicast','unknown-multicast']
+
+    config_db = ConfigDBConnector()
+    config_db.connect()
+
+    table = config_db.get_table('PORT_STORM_CONTROL')
+
+    #To avoid further looping below
+    if not table:
+        return
+
+    for storm_type in storm_type_list:
+        storm_key = intf + '|' + storm_type
+        data = config_db.get_entry('PORT_STORM_CONTROL', storm_key)
+
+        if data:
+            kbps = data['kbps']
+            body.append([intf, storm_type, kbps])
+
+#
+# Display storm-control data of given interface
+#
+def display_storm_interface(intf):
+    """ Show storm-control """
+
+    storm_type_list = ['broadcast','unknown-unicast','unknown-multicast']
+
+    header = ['Interface Name', 'Storm Type', 'Rate (kbps)']
+    body = []
+
+    config_db = ConfigDBConnector()
+    config_db.connect()
+
+    table = config_db.get_table('PORT_STORM_CONTROL')
+
+    #To avoid further looping below
+    if not table:
+        return
+
+    for storm_type in storm_type_list:
+        storm_key = intf + '|' + storm_type
+        data = config_db.get_entry('PORT_STORM_CONTROL', storm_key)
+
+        if data:
+            kbps = data['kbps']
+            body.append([intf, storm_type, kbps])
+
+    click.echo(tabulate(body, header, tablefmt="grid"))
 
 def connect_config_db():
     """
@@ -195,6 +283,9 @@ cli.add_command(vxlan.vxlan)
 cli.add_command(system_health.system_health)
 cli.add_command(warm_restart.warm_restart)
 
+# syslog module
+cli.add_command(syslog.syslog)
+
 # Add greabox commands only if GEARBOX is configured
 if is_gearbox_configured():
     cli.add_command(gearbox.gearbox)
@@ -207,7 +298,7 @@ if is_gearbox_configured():
 def get_interface_bind_to_vrf(config_db, vrf_name):
     """Get interfaces belong to vrf
     """
-    tables = ['INTERFACE', 'PORTCHANNEL_INTERFACE', 'VLAN_INTERFACE', 'LOOPBACK_INTERFACE']
+    tables = ['INTERFACE', 'PORTCHANNEL_INTERFACE', 'VLAN_INTERFACE', 'LOOPBACK_INTERFACE', 'VLAN_SUB_INTERFACE']
     data = []
     for table_name in tables:
         interface_dict = config_db.get_table(table_name)
@@ -234,6 +325,7 @@ def vrf(vrf_name):
             vrfs = [vrf_name]
         for vrf in vrfs:
             intfs = get_interface_bind_to_vrf(config_db, vrf)
+            intfs = natsorted(intfs)
             if len(intfs) == 0:
                 body.append([vrf, ""])
             else:
@@ -307,6 +399,43 @@ def is_mgmt_vrf_enabled(ctx):
                 return True
 
     return False
+
+#
+# 'storm-control' group 
+# "show storm-control [interface <interface>]"
+#
+@cli.group('storm-control', invoke_without_command=True)
+@click.option('--namespace',
+              '-n',
+              'namespace',
+              default=None,
+              type=str,
+              show_default=True,
+              help='Namespace name or all',
+              callback=multi_asic_util.multi_asic_namespace_validation_callback)
+@click.option('--display', '-d', 'display', default=None, show_default=False, type=str, help='all|frontend')
+@click.pass_context
+def storm_control(ctx, namespace, display):
+    """ Show storm-control """
+    header = ['Interface Name', 'Storm Type', 'Rate (kbps)']
+    body = []
+    if ctx.invoked_subcommand is None:
+        if namespace is None:
+            display_storm_all()
+        else:
+            interfaces = multi_asic.multi_asic_get_ip_intf_from_ns(namespace)
+            for intf in interfaces:
+                get_storm_interface(intf, body)
+            click.echo(tabulate(body, header, tablefmt="grid"))
+
+@storm_control.command('interface')
+@click.argument('interface', metavar='<interface>',required=True)
+def interface(interface, namespace, display):
+    if multi_asic.is_multi_asic() and namespace not in multi_asic.get_namespace_list():
+        ctx = click.get_current_context()
+        ctx.fail('-n/--namespace option required. provide namespace from list {}'.format(multi_asic.get_namespace_list()))
+    if interface:
+        display_storm_interface(interface)
 
 #
 # 'mgmt-vrf' group ("show mgmt-vrf ...")
@@ -544,7 +673,8 @@ def queue():
 @click.argument('interfacename', required=False)
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--json', is_flag=True, help="JSON output")
-def counters(interfacename, verbose, json):
+@click.option('--voq', is_flag=True, help="VOQ counters")
+def counters(interfacename, verbose, json, voq):
     """Show queue counters"""
 
     cmd = "queuestat"
@@ -558,6 +688,9 @@ def counters(interfacename, verbose, json):
 
     if json:
         cmd += " -j"
+
+    if voq:
+        cmd += " -V"
 
     run_command(cmd, display_cmd=verbose)
 
@@ -805,15 +938,49 @@ def ip():
 # Addresses from all scopes are included. Interfaces with no addresses are
 # excluded.
 #
-@ip.command()
-@multi_asic_util.multi_asic_click_options
-def interfaces(namespace, display):
-    cmd = "sudo ipintutil -a ipv4"
-    if namespace is not None:
-        cmd += " -n {}".format(namespace)
 
-    cmd += " -d {}".format(display)
-    clicommon.run_command(cmd)
+@ip.group(invoke_without_command=True)
+@multi_asic_util.multi_asic_click_options
+@click.pass_context
+def interfaces(ctx, namespace, display):
+    if ctx.invoked_subcommand is None:
+        cmd = "sudo ipintutil -a ipv4"
+        if namespace is not None:
+            cmd += " -n {}".format(namespace)
+
+        cmd += " -d {}".format(display)
+        clicommon.run_command(cmd)
+
+#
+# 'show ip interfaces loopback-action' command
+#
+
+@interfaces.command()
+def loopback_action():
+    """show ip interfaces loopback-action"""
+    config_db = ConfigDBConnector()
+    config_db.connect()
+    header = ['Interface', 'Action']
+    body = []
+
+    if_tbl = config_db.get_table('INTERFACE')
+    vlan_if_tbl = config_db.get_table('VLAN_INTERFACE')
+    po_if_tbl = config_db.get_table('PORTCHANNEL_INTERFACE')
+    sub_if_tbl = config_db.get_table('VLAN_SUB_INTERFACE')
+
+    all_tables = {}
+    for tbl in [if_tbl, vlan_if_tbl, po_if_tbl, sub_if_tbl]:
+        all_tables.update(tbl)
+
+    if all_tables:
+        ifs_action = []
+        ifs = list(all_tables.keys())
+        for iface in ifs:
+            if 'loopback_action' in all_tables[iface]:
+                action = all_tables[iface]['loopback_action']
+                ifs_action.append([iface, action])
+        body = natsorted(ifs_action)
+    click.echo(tabulate(body, header))
 
 #
 # 'route' subcommand ("show ip route")
@@ -1138,7 +1305,7 @@ def users(verbose):
 
 @cli.command()
 @click.option('--since', required=False, help="Collect logs and core files since given date")
-@click.option('-g', '--global-timeout', default=30, type=int, help="Global timeout in minutes. Default 30 mins")
+@click.option('-g', '--global-timeout', required=False, type=int, help="Global timeout in minutes. WARN: Dump might be incomplete if enforced")
 @click.option('-c', '--cmd-timeout', default=5, type=int, help="Individual command timeout in minutes. Default 5 mins")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--allow-process-stop', is_flag=True, help="Dump additional data which may require system interruption")
@@ -1147,7 +1314,10 @@ def users(verbose):
 @click.option('--redirect-stderr', '-r', is_flag=True, help="Redirect an intermediate errors to STDERR")
 def techsupport(since, global_timeout, cmd_timeout, verbose, allow_process_stop, silent, debug_dump, redirect_stderr):
     """Gather information for troubleshooting"""
-    cmd = "sudo timeout --kill-after={}s -s SIGTERM --foreground {}m".format(COMMAND_TIMEOUT, global_timeout)
+    cmd = "sudo"
+
+    if global_timeout:
+        cmd += " timeout --kill-after={}s -s SIGTERM --foreground {}m".format(COMMAND_TIMEOUT, global_timeout)
 
     if allow_process_stop:
         cmd += " -a"
@@ -1420,34 +1590,25 @@ def show_run_snmp(db, ctx):
 @runningconfiguration.command()
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 def syslog(verbose):
-    """Show Syslog running configuration
-    To match below cases(port is optional):
-    *.* @IPv4:port
-    *.* @@IPv4:port
-    *.* @[IPv4]:port
-    *.* @@[IPv4]:port
-    *.* @[IPv6]:port
-    *.* @@[IPv6]:port
-    """
-    syslog_servers = []
-    syslog_dict = {}
-    re_ipv4_1 = re.compile(r'^\*\.\* @{1,2}(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?')
-    re_ipv4_2 = re.compile(r'^\*\.\* @{1,2}\[(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\](:\d+)?')
-    re_ipv6 = re.compile(r'^\*\.\* @{1,2}\[([0-9a-fA-F:.]+)\](:\d+)?')
-    with open("/etc/rsyslog.conf") as syslog_file:
-        data = syslog_file.readlines()
+    """Show Syslog running configuration"""
+
+    header = ["Syslog Servers"]
+    body = []
+
+    re_syslog = re.compile(r'^\*\.\* action\(.*target=\"{1}(.+?)\"{1}.*\)')
+
+    try:
+        with open("/etc/rsyslog.conf") as syslog_file:
+            data = syslog_file.readlines()
+    except Exception as e:
+        raise click.ClickException(str(e))
+
     for line in data:
-        if re_ipv4_1.match(line):
-            server =  re_ipv4_1.match(line).group(1)
-        elif re_ipv4_2.match(line):
-            server =  re_ipv4_2.match(line).group(1)
-        elif re_ipv6.match(line):
-            server =  re_ipv6.match(line).group(1)
-        else:
-            continue
-        syslog_servers.append("[{}]".format(server))
-    syslog_dict['Syslog Servers'] = syslog_servers
-    print(tabulate(syslog_dict, headers=list(syslog_dict.keys()), tablefmt="simple", stralign='left', missingval=""))
+        re_match = re_syslog.match(line)
+        if re_match:
+            body.append(["[{}]".format(re_match.group(1))])
+
+    click.echo(tabulate(body, header, tablefmt="simple", stralign="left", missingval=""))
 
 
 #

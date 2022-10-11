@@ -7,6 +7,10 @@ from swsscommon.swsscommon import SonicV2Connector, SonicDBConfig
 from sonic_py_common import multi_asic
 from utilities_common.constants import DEFAULT_NAMESPACE
 
+# Constants
+CONN = "conn"
+CONN_TO = "connected_to"
+
 EXCEP_DICT = {
     "INV_REQ": "Argument should be of type MatchRequest",
     "INV_DB": "DB provided is not valid",
@@ -154,6 +158,10 @@ class SourceAdapter(ABC):
     def get_separator(self, db):
         return ""
 
+    @abstractmethod
+    def hgetall(self, db, key):
+        raise NotImplementedError
+
 
 class RedisSource(SourceAdapter):
     """ Concrete Adaptor Class for connecting to Redis Data Sources """
@@ -181,6 +189,9 @@ class RedisSource(SourceAdapter):
 
     def hget(self, db, key, field):
         return self.conn.get(db, key, field)
+
+    def hgetall(self, db, key):
+        return self.conn.get_all(db, key)
 
 
 class JsonSource(SourceAdapter):
@@ -219,6 +230,11 @@ class JsonSource(SourceAdapter):
         table, key = key.split(sep, 1)
         return self.json_data.get(table, "").get(key, "").get(field, "")
 
+    def hgetall(self, db, key):
+        sep = self.get_separator(db)
+        table, key = key.split(sep, 1)
+        return self.json_data.get(table, {}).get(key)
+
 
 class ConnectionPool:
     """ Caches SonicV2Connector objects for effective reuse """
@@ -237,18 +253,22 @@ class ConnectionPool:
         """ Returns a SonicV2Connector Object and caches it for further requests """
         if ns not in self.cache:
             self.cache[ns] = {}
-            self.cache[ns]["conn"] = self.initialize_connector(ns)
-            self.cache[ns]["connected_to"] = set()
-        if update or db_name not in self.cache[ns]["connected_to"]:
-            self.cache[ns]["conn"].connect(db_name)
-            self.cache[ns]["connected_to"].add(db_name)
-        return self.cache[ns]["conn"]
+            self.cache[ns][CONN] = self.initialize_connector(ns)
+            self.cache[ns][CONN_TO] = set()
+        if update or db_name not in self.cache[ns][CONN_TO]:
+            self.cache[ns][CONN].connect(db_name)
+            self.cache[ns][CONN_TO].add(db_name)
+        return self.cache[ns][CONN]
 
     def clear(self, namespace=None):
         if not namespace:
             self.cache.clear()
         elif namespace in self.cache:
             del self.cache[namespace]
+
+    def fill(self, ns, conn, connected_to):
+        """ Update internal cache """
+        self.cache[ns] = {CONN: conn, CONN_TO: set(connected_to)}
 
 
 class MatchEngine:
@@ -267,15 +287,21 @@ class MatchEngine:
     def clear_cache(self, ns):
         self.conn_pool(ns)
 
+    def get_redis_source_adapter(self):
+        return RedisSource(self.conn_pool)
+
+    def get_json_source_adapter(self):
+        return JsonSource()
+
     def __get_source_adapter(self, req):
         src = None
         d_src = ""
         if req.db:
             d_src = req.db
-            src = RedisSource(self.conn_pool)
+            src = self.get_redis_source_adapter()
         else:
             d_src = req.file
-            src = JsonSource()
+            src = self.get_json_source_adapter()
         return d_src, src
 
     def __create_template(self):

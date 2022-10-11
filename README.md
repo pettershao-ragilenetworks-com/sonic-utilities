@@ -1,7 +1,16 @@
-[![Total alerts](https://img.shields.io/lgtm/alerts/g/Azure/sonic-utilities.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Azure/sonic-utilities/alerts/)
-[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/Azure/sonic-utilities.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Azure/sonic-utilities/context:python)
+*static analysis:*
 
-[![Build](https://sonic-jenkins.westus2.cloudapp.azure.com/job/common/job/sonic-utilities-build/badge/icon)](https://sonic-jenkins.westus2.cloudapp.azure.com/job/common/job/sonic-utilities-build/)
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/sonic-net/sonic-utilities.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/sonic-net/sonic-utilities/alerts/)
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/sonic-net/sonic-utilities.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/sonic-net/sonic-utilities/context:python)
+
+*sonic-utilities builds:*
+
+[![master build](https://dev.azure.com/mssonic/build/_apis/build/status/Azure.sonic-utilities?branchName=master&label=master)](https://dev.azure.com/mssonic/build/_build/latest?definitionId=55&branchName=master)
+
+[![202205 build](https://dev.azure.com/mssonic/build/_apis/build/status/Azure.sonic-utilities?branchName=202205&label=202205)](https://dev.azure.com/mssonic/build/_build/latest?definitionId=55&branchName=202205)
+
+[![202012 build](https://dev.azure.com/mssonic/build/_apis/build/status/Azure.sonic-utilities?branchName=202012&label=202012)](https://dev.azure.com/mssonic/build/_build/latest?definitionId=55&branchName=202012)
+
 
 # SONiC: Software for Open Networking in the Cloud
 
@@ -26,23 +35,23 @@ Currently, this list of dependencies is as follows:
 - libyang-cpp_1.0.73_amd64.deb
 - python3-yang_1.0.73_amd64.deb
 - redis_dump_load-1.1-py3-none-any.whl
-- swsssdk-2.0.1-py3-none-any.whl
 - sonic_py_common-1.0-py3-none-any.whl
 - sonic_config_engine-1.0-py3-none-any.whl
 - sonic_yang_mgmt-1.0-py3-none-any.whl
 - sonic_yang_models-1.0-py3-none-any.whl
+- python-swsscommon_1.0.0_amd64.deb
 
 
-A convenient alternative is to let the SONiC build system configure a build enviroment for you. This can be done by cloning the [sonic-buildimage](https://github.com/Azure/sonic-buildimage) repo, building the sonic-utilities package inside the Debian Buster slave container, and staying inside the container once the build finishes. During the build process, the SONiC build system will build and install all the necessary dependencies inside the container. After following the instructions to clone and initialize the sonic-buildimage repo, this can be done as follows:
+A convenient alternative is to let the SONiC build system configure a build enviroment for you. This can be done by cloning the [sonic-buildimage](https://github.com/sonic-net/sonic-buildimage) repo, building the sonic-utilities package inside the Debian Buster slave container, and staying inside the container once the build finishes. During the build process, the SONiC build system will build and install all the necessary dependencies inside the container. After following the instructions to clone and initialize the sonic-buildimage repo, this can be done as follows:
 
 1. Configure the build environment for an ASIC type (any type will do, here we use `generic`)
     ```
     make configure PLATFORM=generic
     ```
 
-2. Build the sonic-utilities Python wheel package inside the Buster slave container, and tell the build system to keep the container alive when finished
+2. Build the sonic-utilities Python wheel package inside the Bullseye slave container, and tell the build system to keep the container alive when finished
     ```
-    make NOJESSIE=1 NOSTRETCH=1 KEEP_SLAVE_ON=yes target/python-wheels/sonic_utilities-1.2-py3-none-any.whl
+    make NOSTRETCH=1 NOBUSTER=1 KEEP_SLAVE_ON=yes target/python-wheels/bullseye/sonic_utilities-1.2-py3-none-any.whl
     ```
 
 3. When the build finishes, your prompt will change to indicate you are inside the slave container. Change into the `src/sonic-utilities/` directory
@@ -71,13 +80,15 @@ A Debian package, containing data files needed by the utilities (bash_completion
 
 #### To build
 
-Instructions for building the sonic-utilities-data package can be found in [sonic-utilities-data/README.md](https://github.com/Azure/sonic-utilities/blob/master/sonic-utilities-data/README.md)
+Instructions for building the sonic-utilities-data package can be found in [sonic-utilities-data/README.md](https://github.com/sonic-net/sonic-utilities/blob/master/sonic-utilities-data/README.md)
 
 ---
 
 ## Contribution guide
 
-All contributors must sign a contribution license agreement (CLA) before contributions can be accepted. This process is now automated via a GitHub bot when submitting new pull request. If the contributor has not yet signed a CLA, the bot will create a comment on the pull request containing a link to electronically sign the CLA.
+Please read the [contributor guide](https://github.com/sonic-net/SONiC/wiki/Becoming-a-contributor) for more details on how to contribute.
+
+All contributors must sign an [Individual Contributor License Agreement (ICLA)](https://docs.linuxfoundation.org/lfx/easycla/v2-current/contributors/individual-contributor) before contributions can be accepted. This process is now automated via a GitHub bot when submitting new pull request. If the contributor has not yet signed a CLA, the bot will create a comment on the pull request containing a link to electronically sign the CLA.
 
 ### GitHub Workflow
 

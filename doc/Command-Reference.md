@@ -79,8 +79,8 @@
   * [Kubernetes show commands](#Kubernetes-show-commands)
   * [Kubernetes config commands](#Kubernetes-config-commands)
 * [Linux Kernel Dump](#kdump)
-  * [Linux Kernel Dump show commands](#kdump-show-commands)
-  * [Linux Kernel Dump config commands](#kdump-config-commands)
+  * [Linux Kernel Dump show commands](#Linux-Kernel-Dump-show-commands)
+  * [Linux Kernel Dump config commands](#Linux-Kernel-Dump-config-command)
 * [LLDP](#lldp)
   * [LLDP show commands](#lldp-show-commands)
 * [Loading, Reloading And Saving Configuration](#loading-reloading-and-saving-configuration)
@@ -134,6 +134,9 @@
     * [Queue And Priority-Group](#queue-and-priority-group)
     * [Buffer Pool](#buffer-pool)
   * [QoS config commands](#qos-config-commands)
+* [Radius](#radius)
+  * [radius show commands](#show-radius-commands)
+  * [radius config commands](#Radius-config-commands)  
 * [sFlow](#sflow)
   * [sFlow Show commands](#sflow-show-commands)
   * [sFlow Config commands](#sflow-config-commands)
@@ -148,6 +151,7 @@
   * [Subinterfaces Show Commands](#subinterfaces-show-commands)
   * [Subinterfaces Config Commands](#subinterfaces-config-commands)
 * [Syslog](#syslog)
+  * [Syslog show commands](#syslog-show-commands)
   * [Syslog config commands](#syslog-config-commands)
 * [System State](#system-state)
   * [Processes](#processes)
@@ -182,6 +186,11 @@
 * [ZTP Configuration And Show Commands](#ztp-configuration-and-show-commands)
   * [ ZTP show commands](#ztp-show-commands)
   * [ZTP configuration commands](#ztp-configuration-commands)
+* [MACsec Commands](#macsec-commands)
+  * [MACsec config command](#macsec-config-command)
+  * [MACsec show command](#macsec-show-command)
+  * [MACsec clear command](#macsec-clear-command)
+
 
 ## Document History
 
@@ -1579,7 +1588,7 @@ This command displays the state and key parameters of all BFD sessions.
 
 - Usage:
   ```
-  show bgp summary
+  show bfd summary
   ```
 - Example:
   ```
@@ -3122,6 +3131,13 @@ This command will configure the state for a specific feature.
   admin@sonic:~$ sudo config feature state bgp disabled
   ``` 
 
+To make the command wait until the corresponding feature container stops(starts) use ```--block``` options:
+
+- Usage:
+    ```
+    admin@sonic:~$ config feature state bgp enabled --block
+    ```
+
 **config feature autorestart <feature_name> <autorestart_status>**
 
 This command will configure the status of auto-restart for a specific feature container.
@@ -3657,6 +3673,25 @@ This command is used to display the configured MPLS state for the list of config
   Ethernet4    enable
   ```
 
+**show interfaces loopback-action**
+
+This command displays the configured loopback action
+
+- Usage:
+  ```
+  show ip interfaces loopback-action
+  ```
+
+- Example:
+  ```
+  root@sonic:~# show ip interfaces loopback-action
+  Interface     Action
+  ------------  ----------
+  Ethernet232   drop
+  Vlan100       forward
+  ```
+
+
 **show interfaces tpid**
 
 This command displays the key fields of the interfaces such as Operational Status, Administrative Status, Alias and TPID.
@@ -3803,6 +3838,7 @@ This sub-section explains the following list of configuration on the interfaces.
 9) advertised-types - to set interface advertised types
 10) type - to set interface type
 11) mpls - To add or remove MPLS operation for the interface
+12) loopback-action - to set action for packet that ingress and gets routed on the same IP interface
 
 From 201904 release onwards, the “config interface” command syntax is changed and the format is as follows:
 
@@ -4336,6 +4372,29 @@ MPLS operation for either physical, portchannel, or VLAN interface can be config
   admin@sonic:~$ sudo config interface mpls remove Ethernet4
   ```
 
+**config interface ip loopback-action <interface_name> <action> (Versions >= 202205)**
+
+This command is used for setting the action being taken on packets that ingress and get routed on the same IP interface.
+Loopback action can be set on IP interface from type physical, portchannel, VLAN interface and VLAN subinterface.
+Loopback action can be drop or forward.
+
+- Usage:
+  ```
+  config interface ip loopback-action --help
+  Usage: config interface ip loopback-action [OPTIONS] <interface_name> <action>
+
+    Set IP interface loopback action
+
+  Options:
+    -?, -h, --help  Show this message and exit.
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ config interface ip loopback-action Ethernet0 drop
+  admin@sonic:~$ config interface ip loopback-action Ethernet0 forward
+
+  ```
 Go Back To [Beginning of the document](#) or [Beginning of this section](#interfaces)
 
 ## Interface Naming Mode
@@ -4437,7 +4496,7 @@ This will move the interface to default vrf.
 
 - Usage:
   ```
-  config interface vrf unbind <interface_name> <vrf_name>
+  config interface vrf unbind <interface_name>
   ```
   
   ### Interface vrf binding show commands
@@ -4957,6 +5016,27 @@ last number of lines.
   [ 656.337476] gpio_ich(E) ahci(E) mlxsw_core(E) libahci(E) devlink(E) crc32c_intel(E) libata(E) i2c_i801(E) scsi_mod(E) lpc_ich(E) mfd_core(E) ehci_pci(E) ehci_hcd(E) usbcore(E) e1000e(E) usb_common(E) fan(E) thermal(E)
   [ 656.569590] CR2: 0000000000000000
   ```
+### Linux Kernel Dump config command 
+ 
+**config kdump**
+
+Administrative state of kdump is stored in ConfigDB.
+
+The variable USE_KDUMP in the file /etc/default/kdump-tools is set to 0 to disable kdump, and set to 1 to enable kdump.
+
+Since this command might require changing the kernel parameters to specify the amount of memory reserved for the capture kernel (the kernel parameters which are exported through /proc/cmdline), a reboot is necessary. The command displays a message showing that kdump functionality will be either enabled or disabled following the next reboot. 
+  
+- Usage:
+```
+	admin@sonic:~$ config kdump
+
+Commands:
+  disable    Disable the KDUMP mechanism
+  enable     Enable the KDUMP mechanism
+  memory     Configure the memory for KDUMP mechanism
+  num_dumps  Configure the maximum dump files of KDUMP mechanism
+  
+```
 Go Back To [Beginning of the document](#) or [Beginning of this section](#kdump)
 
 ## LLDP
@@ -5106,9 +5186,11 @@ When user specifies the optional argument "-n" or "--no-service-restart", this c
 running on the device. One use case for this option is during boot time when config-setup service loads minigraph configuration and there is no services
 running on the device.
 
+When user specifies the optional argument "-t" or "--traffic-shift-away", this command executes TSA command at the end to ensure the device remains in maintenance after loading minigraph.
+
 - Usage:
   ```
-  config load_minigraph [-y|--yes] [-n|--no-service-restart]
+  config load_minigraph [-y|--yes] [-n|--no-service-restart] [-t|--traffic-shift-away]
   ```
 
 - Example:
@@ -5192,7 +5274,7 @@ When user specifies the optional argument "-f" or "--force", this command ignore
 
 This command is used to reconfigure hostname and mgmt interface based on device description file.
 This command either uses the optional file specified as arguement or looks for the file "/etc/sonic/device_desc.xml".
-If the file does not exist or if the file does not have valid fields for "hostname" and "ManagementAddress", it fails.
+If the file does not exist or if the file does not have valid fields for "hostname" and "ManagementAddress" (or "ManagementAddressV6"), it fails.
 
 When user specifies the optional argument "-y" or "--yes", this command forces the loading without prompting the user for confirmation.
 If the argument is not specified, it prompts the user to confirm whether user really wants to load this configuration file.
@@ -5281,8 +5363,11 @@ If vrf-name is also provided as part of the command, if the vrf is created it wi
      default    Vlan20
      Vrf-red    Vlan100
                 Loopback11
+                Eth0.100
      Vrf-blue   Loopback100
                 Loopback102
+                Ethernet0.10
+                PortChannel101
   ````  
 
 ### VRF config commands
@@ -6852,12 +6937,13 @@ When any port is already member of any other portchannel and if user tries to ad
 Command takes two optional arguements given below.
 1) min-links  - minimum number of links required to bring up the portchannel
 2) fallback - true/false. LACP fallback feature can be enabled / disabled.  When it is set to true, only one member port will be selected as active per portchannel during fallback mode. Refer https://github.com/Azure/SONiC/blob/master/doc/lag/LACP%20Fallback%20Feature%20for%20SONiC_v0.5.md for more details about fallback feature.
+3) fast-rate - true/false, default is false (slow). Option specifying the rate in which we'll ask our link partner to transmit LACPDU packets in 802.3ad mode. slow - request partner to transmit LACPDUs every 30 seconds, fast - request partner to transmit LACPDUs every 1 second. In slow mode 60-90 seconds needed to detect linkdown, in fast mode only 2-3 seconds.
 
 A port channel can be deleted only if it does not have any members or the members are already deleted. When a user tries to delete a port channel and the port channel still has one or more members that exist, the deletion of port channel is blocked. 
 
 - Usage:
   ```
-  config portchannel (add | del) <portchannel_name> [--min-links <num_min_links>] [--fallback (true | false)]
+  config portchannel (add | del) <portchannel_name> [--min-links <num_min_links>] [--fallback (true | false)  [--fast-rate (true | false)]
   ```
 
 - Example (Create the portchannel with name "PortChannel0011"):
@@ -7728,6 +7814,51 @@ If there was QoS configuration in the above tables for the ports:
 
 Go Back To [Beginning of the document](#) or [Beginning of this section](#qos)
 
+## Radius
+
+### show radius commands
+
+This command displays the global radius configuration that includes the auth_type, retransmit, timeout  and passkey.
+
+- Usage:
+  ```
+  show radius
+  ```
+- Example:
+
+  ```
+  admin@sonic:~$ show radius
+	RADIUS global auth_type pap (default)
+	RADIUS global retransmit 3 (default)
+	RADIUS global timeout 5 (default)
+	RADIUS global passkey <EMPTY_STRING> (default)
+
+  ```
+ 
+### Radius config commands
+
+This command is to config the radius server for various parameter listed.
+
+ - Usage:
+  ```
+  config radius
+  ```
+- Example:
+  ```
+  admin@sonic:~$ config radius
+  
+  add         Specify a RADIUS server
+  authtype    Specify RADIUS server global auth_type [chap | pap | mschapv2]
+  default     set its default configuration
+  delete      Delete a RADIUS server
+  nasip       Specify RADIUS server global NAS-IP|IPV6-Address <IPAddress>
+  passkey     Specify RADIUS server global passkey <STRING>
+  retransmit  Specify RADIUS server global retry attempts <0 - 10>
+  sourceip    Specify RADIUS server global source ip <IPAddress>
+  statistics  Specify RADIUS server global statistics [enable | disable |...
+  timeout     Specify RADIUS server global timeout <1 - 60>
+
+  ```
 ## sFlow
 
 ### sFlow Show commands
@@ -8428,6 +8559,7 @@ This command is used to add a static route. Note that prefix /nexthop vrf`s and 
 
   ```
   admin@sonic:~$ config route add prefix 2.2.3.4/32 nexthop 30.0.0.9
+  admin@sonic:~$ config route add prefix 4.0.0.0/24 nexthop dev Ethernet32.10
   ```
 
 It also supports ECMP, and adding a new nexthop to the existing prefix will complement it and not overwrite them.
@@ -8541,40 +8673,71 @@ Go Back To [Beginning of the document](#) or [Beginning of this section](#static
 
 ## Syslog
 
+### Syslog Show Commands
+
+This subsection explains how to display configured syslog servers.
+
+**show syslog**
+
+This command displays configured syslog servers.
+
+- Usage:
+  ```
+  show syslog
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show syslog
+  SERVER IP    SOURCE IP    PORT    VRF
+  -----------  -----------  ------  -------
+  2.2.2.2      1.1.1.1      514     default
+  ```
+
 ### Syslog Config Commands
 
-This sub-section of commands is used to add or remove the configured syslog servers.
+This subsection explains how to configure syslog servers.
 
 **config syslog add**
 
-This command is used to add a SYSLOG server to the syslog server list.  Note that more that one syslog server can be added in the device.
+This command is used to add a syslog server to the syslog server list.  
+Note that more that one syslog server can be added in the device.
 
 - Usage:
   ```
-  config syslog add <ip_address>
+  config syslog add <server_address>
   ```
+
+- Parameters:
+  - _server_address_: syslog server IP address
+  - _source_: syslog source IP address
+  - _port_: syslog server UDP port
+  - _vrf_: syslog VRF device
 
 - Example:
   ```
-  admin@sonic:~$ sudo config syslog add 1.1.1.1
-  Syslog server 1.1.1.1 added to configuration
-  Restarting rsyslog-config service...
+  admin@sonic:~$ sudo config syslog add 2.2.2.2 --source 1.1.1.1 --port 514 --vrf default
+  Running command: systemctl reset-failed rsyslog-config
+  Running command: systemctl restart rsyslog-config
   ```
 
-**config syslog delete**
+**config syslog del**
 
-This command is used to delete the syslog server configured.
+This command is used to delete the configured syslog server.
 
 - Usage:
   ```
-  config syslog del <ip_address>
+  config syslog del <server_address>
   ```
+
+- Parameters:
+  - _server_address_: syslog server IP address
 
 - Example:
   ```
-  admin@sonic:~$ sudo config syslog del 1.1.1.1
-  Syslog server 1.1.1.1 removed from configuration
-  Restarting rsyslog-config service...
+  admin@sonic:~$ sudo config syslog del 2.2.2.2
+  Running command: systemctl reset-failed rsyslog-config
+  Running command: systemctl restart rsyslog-config
   ```
 
 Go Back To [Beginning of the document](#) or [Beginning of this section](#syslog)
@@ -9361,6 +9524,42 @@ This command displays brief information about all the vnets configured in the de
   Vnet_3000    tunnel1          3000  Vnet_2000,Vnet4000
   ```
 
+**show vnet endpoint <ip/ipv6>**
+
+This command displays the list or vxlan tunnel endpoints and their status. In addition it also shows the number of prefixes associated with each endpoints in the tunnels. If an IP address of an endpoint is provided, this command also shows the associated prefixes a well.
+
+- Usage:
+
+  ```
+  show vnet endpoint <ipv4_address/ipv6_address>
+
+  ```
+
+- Example:
+
+  ```
+  admin@sonic:~$ show vnet endpoint
+  Endpoint                 prefix count  status
+  ---------------------  --------------  --------
+  fddd:a100:a251::a10:1               1  Down
+  fddd:a101:a251::a10:1               1  Up
+  100.251.7.1                         3  Up
+  
+  or
+  
+  admin@sonic:~$ show vnet endpoint fddd:a101:a251::a10:1
+  Endpoint               prefix                        status
+  ---------------------  ----------------------------  --------
+  fddd:a101:a251::a10:1  ['fddd:a150:a251::a6:1/128']  Up
+
+  or
+
+  admin@sonic:~$ show vnet endpoint 100.251.7.1
+  Endpoint     prefix                                                     status
+  -----------  ---------------------------------------------------------  --------
+  100.251.7.1  ['160.62.191.1/32', '160.63.191.1/32', '160.64.191.1/32']  Up
+  ```
+
 **show vnet name <vnet_name>**
 
 This command displays brief information about <vnet_name> configured in the device.
@@ -9426,7 +9625,7 @@ This command displays vnet neighbor information about all the vnets configured i
 
 **show vnet routes all**
 
-This command displays all routes information about all the vnets configured in the device.
+This command displays all routes information about all the vnets configured in the device. It also show the vnet routes which are configured but may or may not be active based on endpoint BFD status.
 
 - Usage:
 
@@ -9443,10 +9642,11 @@ This command displays all routes information about all the vnets configured in t
   Vnet_2000    100.100.3.0/24             Ethernet52
   Vnet_3000    100.100.4.0/24             Vlan2000
 
-  vnet name    prefix          endpoint    mac address        vni
-  -----------  --------------  ----------  -----------------  -----
-  Vnet_2000    100.100.1.1/32  10.10.10.1
-  Vnet_3000    100.100.2.1/32  10.10.10.2  00:00:00:00:03:04
+  vnet name    prefix          endpoint    mac address        vni    status
+  -----------  --------------  ----------  -----------------  -----  -------
+  Vnet_2000    100.100.1.1/32  10.10.10.1                            active
+  Vnet_3000    100.100.2.1/32  10.10.10.2  00:00:00:00:03:04         inactive
+  Vnet_3000    100.100.2.3/32  10.10.10.6  00:00:00:00:03:04
   ```
 
 **show vnet routes tunnel**
@@ -10323,7 +10523,8 @@ In SONiC, there usually exists a set of tables related/relevant to a particular 
 
 ### Event Driven Techsupport Invocation
 
-This feature/capability makes the techsupport invocation event-driven based on core dump generation. This feature is only applicable for the processes running in the containers. More detailed explanation can be found in the HLD https://github.com/Azure/SONiC/blob/master/doc/auto_techsupport_and_coredump_mgmt.md
+This feature/capability makes the techsupport invocation event-driven based on system events like core dump generation or low RAM availability.
+This feature is only applicable for the processes running in the containers. More detailed explanation can be found in the HLD https://github.com/Azure/SONiC/blob/master/doc/auto_techsupport_and_coredump_mgmt.md
 
 #### config auto-techsupport global commands
 		
@@ -10395,6 +10596,35 @@ This feature/capability makes the techsupport invocation event-driven based on c
   config auto-techsupport global since <string>
   ```
 
+**config auto-techsupport global available-mem-threshold**
+
+Configure available memory threshold in %. System will automatically generate a techsupport dump when available memory goes below the configured threshold. Setting this field to 0 will disable techsupport invokation.
+
+- Usage:
+  ```
+  config auto-techsupport global available-mem-threshold <float up to two decimal places>
+  ```
+  - Parameters:
+    - available-mem-threshold: Memory threshold. Configure 0 to disable techsupport invocation on memory usage threshold crossing
+- Example:
+  ```
+  config auto-techsupport global available-mem-threshold 20
+  ```
+
+**config auto-techsupport global min-available-mem**
+
+Configure minimum available memory in MB. System will automatically generate a techsupport dump when available memory goes below the configured threshold.
+
+- Usage:
+  ```
+  config auto-techsupport global min-available-mem <uint32>
+  ```
+  - Parameters:
+    - min-available-mem: Minimum free memory amount in MB to trigger techsupport dump
+- Example:
+  ```
+  config auto-techsupport global min-available-mem 200
+  ```
 
 #### config auto-techsupport-feature commands
 
@@ -10402,15 +10632,16 @@ This feature/capability makes the techsupport invocation event-driven based on c
 		
 - Usage:
   ```
-  config auto-techsupport-feature add <feature_name> --state <enabled/disabled> --rate-limit-interval <uint16>
+  config auto-techsupport-feature add <feature_name> --state <enabled/disabled> --rate-limit-interval <uint16> --available-mem-threshold <float up to two decimal places>
   ```
   - Parameters:
     - state: enable/disable the capability for the specific feature/container.
     - rate-limit-interval: Rate limit interval for the corresponding feature. Configure 0 to explicitly disable. For the techsupport to be generated by auto-techsupport, both the global and feature specific rate-limit-interval has to be passed
+    - available-mem-threshold: Memory threshold. Configure 0 to disable techsupport invocation on memory usage threshold crossing.
 
 - Example:
   ```
-  config auto-techsupport-feature add bgp --state enabled --rate-limit-interval 200
+  config auto-techsupport-feature add bgp --state enabled --rate-limit-interval 200 --available-mem-threshold 50
   ```
 
 
@@ -10432,6 +10663,7 @@ This feature/capability makes the techsupport invocation event-driven based on c
   ```
   config auto-techsupport-feature update <feature_name> --state <enabled/disabled>
   config auto-techsupport-feature update <feature_name> --rate-limit-interval <uint16>
+  config auto-techsupport-feature update <feature_name> --available-mem-threshold <float up to two decimal places>
   ```
 
 - Example:
@@ -10452,9 +10684,9 @@ This feature/capability makes the techsupport invocation event-driven based on c
 - Example:
   ```
   admin@sonic:~$ show auto-techsupport global
-  STATE      RATE LIMIT INTERVAL (sec)    MAX TECHSUPPORT LIMIT (%)    MAX CORE LIMIT (%)       SINCE
-  -------  ---------------------------   --------------------------    ------------------  ----------
-  enabled                          180                        10.0                   5.0   2 days ago
+  STATE    RATE LIMIT INTERVAL (sec)    MAX TECHSUPPORT LIMIT (%)    MAX CORE LIMIT (%)    AVAILABLE MEM THRESHOLD (%)    MIN AVAILABLE MEM (Kb)    SINCE
+  -------  ---------------------------  ---------------------------  --------------------  -----------------------------  ------------------------  ------------
+  enabled  180                          10                           5                     10                             200                       2 days ago
   ```
 
 **show auto-techsupport-feature**
@@ -10467,13 +10699,13 @@ This feature/capability makes the techsupport invocation event-driven based on c
 - Example:
   ```
   admin@sonic:~$ show auto-techsupport-feature 
-  FEATURE NAME    STATE       RATE LIMIT INTERVAL (sec) 
-  --------------  --------  --------------------------
-  bgp             enabled                          600
-  database        enabled                          600
-  dhcp_relay      enabled                          600
-  lldp            enabled                          600
-  swss            disabled                         800
+  FEATURE NAME    STATE       RATE LIMIT INTERVAL (sec) AVAILABLE MEM THRESHOLD (%)
+  --------------  --------  --------------------------  ------------------------------
+  bgp             enabled                          600                              10
+  database        enabled                          600                              10
+  dhcp_relay      enabled                          600                              10
+  lldp            enabled                          600                              10
+  swss            disabled                         800                              10
   ```
 
 **show auto-techsupport history** 
@@ -10486,11 +10718,12 @@ This feature/capability makes the techsupport invocation event-driven based on c
 - Example:
   ```
   admin@sonic:~$ show auto-techsupport history
-  TECHSUPPORT DUMP                          TRIGGERED BY    CORE DUMP
-  ----------------------------------------  --------------  -----------------------------
-  sonic_dump_r-lionfish-16_20210901_221402  bgp             bgpcfgd.1630534439.55.core.gz
-  sonic_dump_r-lionfish-16_20210901_203725  snmp            python3.1630528642.23.core.gz
-  sonic_dump_r-lionfish-16_20210901_222408  teamd           python3.1630535045.34.core.gz
+  TECHSUPPORT DUMP                          TRIGGERED BY    EVENT TYPE      CORE DUMP
+  ----------------------------------------  --------------  --------------  -----------------------------
+  sonic_dump_r-lionfish-16_20210901_221402  bgp             core            bgpcfgd.1630534439.55.core.gz
+  sonic_dump_r-lionfish-16_20210901_203725  snmp            core            python3.1630528642.23.core.gz
+  sonic_dump_r-lionfish-16_20210901_222408  teamd           core            python3.1630535045.34.core.gz
+  sonic_dump_r-lionfish-16_20210901_222511  N/A             memory          N/A
   ```
 		
 Go Back To [Beginning of the document](#) or [Beginning of this section](#troubleshooting-commands)
@@ -10871,3 +11104,248 @@ Running command: ztp run -y
 ```
 
 Go Back To [Beginning of the document](#SONiC-COMMAND-LINE-INTERFACE-GUIDE) or [Beginning of this section](#ztp-configuration-and-show-commands)
+
+# MACsec Commands
+
+This sub-section explains the list of the configuration options available for MACsec. MACsec feature is as a plugin to SONiC, So please install MACsec package before using MACsec commands.
+
+## MACsec config command
+
+- Add MACsec profile
+```
+admin@sonic:~$ sudo config macsec profile add --help
+Usage: config macsec profile add [OPTIONS] <profile_name>
+
+  Add MACsec profile
+
+Options:
+  --priority <priority>           For Key server election. In 0-255 range with
+                                  0 being the highest priority.  [default:
+                                  255]
+  --cipher_suite <cipher_suite>   The cipher suite for MACsec.  [default: GCM-
+                                  AES-128]
+  --primary_cak <primary_cak>     Primary Connectivity Association Key.
+                                  [required]
+  --primary_ckn <primary_cak>     Primary CAK Name.  [required]
+  --policy <policy>               MACsec policy. INTEGRITY_ONLY: All traffic,
+                                  except EAPOL, will be converted to MACsec
+                                  packets without encryption.  SECURITY: All
+                                  traffic, except EAPOL, will be encrypted by
+                                  SecY.  [default: security]
+  --enable_replay_protect / --disable_replay_protect
+                                  Whether enable replay protect.  [default:
+                                  False]
+  --replay_window <enable_replay_protect>
+                                  Replay window size that is the number of
+                                  packets that could be out of order. This
+                                  field works only if ENABLE_REPLAY_PROTECT is
+                                  true.  [default: 0]
+  --send_sci / --no_send_sci      Send SCI in SecTAG field of MACsec header.
+                                  [default: True]
+  --rekey_period <rekey_period>   The period of proactively refresh (Unit
+                                  second).  [default: 0]
+  -?, -h, --help                  Show this message and exit.
+```
+
+- Delete MACsec profile
+```
+admin@sonic:~$ sudo config macsec profile del --help
+Usage: config macsec profile del [OPTIONS] <profile_name>
+
+  Delete MACsec profile
+
+Options:
+  -?, -h, --help  Show this message and exit.
+```
+
+- Enable MACsec on the port
+```
+admin@sonic:~$ sudo config macsec port add --help
+Usage: config macsec port add [OPTIONS] <port_name> <profile_name>
+
+  Add MACsec port
+
+Options:
+  -?, -h, --help  Show this message and exit.
+```
+
+
+- Disable MACsec on the port
+```
+admin@sonic:~$ sudo config macsec port del --help
+Usage: config macsec port del [OPTIONS] <port_name>
+
+  Delete MACsec port
+
+Options:
+  -?, -h, --help  Show this message and exit.
+
+```
+
+
+## MACsec show command
+
+- Show MACsec
+
+```
+admin@vlab-02:~$ show macsec --help
+Usage: show macsec [OPTIONS] [INTERFACE_NAME]
+
+Options:
+  -d, --display [all]  Show internal interfaces  [default: all]
+  -n, --namespace []   Namespace name or all
+  -h, -?, --help       Show this message and exit.
+
+```
+
+```
+admin@vlab-02:~$ show macsec
+MACsec port(Ethernet0)
+---------------------  -----------
+cipher_suite           GCM-AES-256
+enable                 true
+enable_encrypt         true
+enable_protect         true
+enable_replay_protect  false
+replay_window          0
+send_sci               true
+---------------------  -----------
+	MACsec Egress SC (5254008f4f1c0001)
+	-----------  -
+	encoding_an  2
+	-----------  -
+		MACsec Egress SA (1)
+		-------------------------------------  ----------------------------------------------------------------
+		auth_key                               849B69D363E2B0AA154BEBBD7C1D9487
+		next_pn                                1
+		sak                                    AE8C9BB36EA44B60375E84BC8E778596289E79240FDFA6D7BA33D3518E705A5E
+		salt                                   000000000000000000000000
+		ssci                                   0
+		SAI_MACSEC_SA_ATTR_CURRENT_XPN         179
+		SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED    0
+		SAI_MACSEC_SA_STAT_OCTETS_PROTECTED    0
+		SAI_MACSEC_SA_STAT_OUT_PKTS_ENCRYPTED  0
+		SAI_MACSEC_SA_STAT_OUT_PKTS_PROTECTED  0
+		-------------------------------------  ----------------------------------------------------------------
+		MACsec Egress SA (2)
+		-------------------------------------  ----------------------------------------------------------------
+		auth_key                               5A8B8912139551D3678B43DD0F10FFA5
+		next_pn                                1
+		sak                                    7F2651140F12C434F782EF9AD7791EE2CFE2BF315A568A48785E35FC803C9DB6
+		salt                                   000000000000000000000000
+		ssci                                   0
+		SAI_MACSEC_SA_ATTR_CURRENT_XPN         87185
+		SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED    0
+		SAI_MACSEC_SA_STAT_OCTETS_PROTECTED    0
+		SAI_MACSEC_SA_STAT_OUT_PKTS_ENCRYPTED  0
+		SAI_MACSEC_SA_STAT_OUT_PKTS_PROTECTED  0
+		-------------------------------------  ----------------------------------------------------------------
+	MACsec Ingress SC (525400edac5b0001)
+		MACsec Ingress SA (1)
+		---------------------------------------  ----------------------------------------------------------------
+		active                                   true
+		auth_key                                 849B69D363E2B0AA154BEBBD7C1D9487
+		lowest_acceptable_pn                     1
+		sak                                      AE8C9BB36EA44B60375E84BC8E778596289E79240FDFA6D7BA33D3518E705A5E
+		salt                                     000000000000000000000000
+		ssci                                     0
+		SAI_MACSEC_SA_ATTR_CURRENT_XPN           103
+		SAI_MACSEC_SA_STAT_IN_PKTS_DELAYED       0
+		SAI_MACSEC_SA_STAT_IN_PKTS_INVALID       0
+		SAI_MACSEC_SA_STAT_IN_PKTS_LATE          0
+		SAI_MACSEC_SA_STAT_IN_PKTS_NOT_USING_SA  0
+		SAI_MACSEC_SA_STAT_IN_PKTS_NOT_VALID     0
+		SAI_MACSEC_SA_STAT_IN_PKTS_OK            0
+		SAI_MACSEC_SA_STAT_IN_PKTS_UNCHECKED     0
+		SAI_MACSEC_SA_STAT_IN_PKTS_UNUSED_SA     0
+		SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED      0
+		SAI_MACSEC_SA_STAT_OCTETS_PROTECTED      0
+		---------------------------------------  ----------------------------------------------------------------
+		MACsec Ingress SA (2)
+		---------------------------------------  ----------------------------------------------------------------
+		active                                   true
+		auth_key                                 5A8B8912139551D3678B43DD0F10FFA5
+		lowest_acceptable_pn                     1
+		sak                                      7F2651140F12C434F782EF9AD7791EE2CFE2BF315A568A48785E35FC803C9DB6
+		salt                                     000000000000000000000000
+		ssci                                     0
+		SAI_MACSEC_SA_ATTR_CURRENT_XPN           91824
+		SAI_MACSEC_SA_STAT_IN_PKTS_DELAYED       0
+		SAI_MACSEC_SA_STAT_IN_PKTS_INVALID       0
+		SAI_MACSEC_SA_STAT_IN_PKTS_LATE          0
+		SAI_MACSEC_SA_STAT_IN_PKTS_NOT_USING_SA  0
+		SAI_MACSEC_SA_STAT_IN_PKTS_NOT_VALID     0
+		SAI_MACSEC_SA_STAT_IN_PKTS_OK            0
+		SAI_MACSEC_SA_STAT_IN_PKTS_UNCHECKED     0
+		SAI_MACSEC_SA_STAT_IN_PKTS_UNUSED_SA     0
+		SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED      0
+		SAI_MACSEC_SA_STAT_OCTETS_PROTECTED      0
+		---------------------------------------  ----------------------------------------------------------------
+MACsec port(Ethernet1)
+---------------------  -----------
+cipher_suite           GCM-AES-256
+enable                 true
+enable_encrypt         true
+enable_protect         true
+enable_replay_protect  false
+replay_window          0
+send_sci               true
+---------------------  -----------
+	MACsec Egress SC (5254008f4f1c0001)
+	-----------  -
+	encoding_an  1
+	-----------  -
+		MACsec Egress SA (1)
+		-------------------------------------  ----------------------------------------------------------------
+		auth_key                               35FC8F2C81BCA28A95845A4D2A1EE6EF
+		next_pn                                1
+		sak                                    1EC8572B75A840BA6B3833DC550C620D2C65BBDDAD372D27A1DFEB0CD786671B
+		salt                                   000000000000000000000000
+		ssci                                   0
+		SAI_MACSEC_SA_ATTR_CURRENT_XPN         4809
+		SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED    0
+		SAI_MACSEC_SA_STAT_OCTETS_PROTECTED    0
+		SAI_MACSEC_SA_STAT_OUT_PKTS_ENCRYPTED  0
+		SAI_MACSEC_SA_STAT_OUT_PKTS_PROTECTED  0
+		-------------------------------------  ----------------------------------------------------------------
+	MACsec Ingress SC (525400edac5b0001)
+		MACsec Ingress SA (1)
+		---------------------------------------  ----------------------------------------------------------------
+		active                                   true
+		auth_key                                 35FC8F2C81BCA28A95845A4D2A1EE6EF
+		lowest_acceptable_pn                     1
+		sak                                      1EC8572B75A840BA6B3833DC550C620D2C65BBDDAD372D27A1DFEB0CD786671B
+		salt                                     000000000000000000000000
+		ssci                                     0
+		SAI_MACSEC_SA_ATTR_CURRENT_XPN           5033
+		SAI_MACSEC_SA_STAT_IN_PKTS_DELAYED       0
+		SAI_MACSEC_SA_STAT_IN_PKTS_INVALID       0
+		SAI_MACSEC_SA_STAT_IN_PKTS_LATE          0
+		SAI_MACSEC_SA_STAT_IN_PKTS_NOT_USING_SA  0
+		SAI_MACSEC_SA_STAT_IN_PKTS_NOT_VALID     0
+		SAI_MACSEC_SA_STAT_IN_PKTS_OK            0
+		SAI_MACSEC_SA_STAT_IN_PKTS_UNCHECKED     0
+		SAI_MACSEC_SA_STAT_IN_PKTS_UNUSED_SA     0
+		SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED      0
+		SAI_MACSEC_SA_STAT_OCTETS_PROTECTED      0
+		---------------------------------------  ----------------------------------------------------------------
+```
+
+## MACsec clear command
+
+Clear MACsec counters which is to reset all MACsec counters to ZERO.
+
+```
+admin@sonic:~$ sonic-clear macsec --help
+Usage: sonic-clear macsec [OPTIONS]
+
+  Clear MACsec counts. This clear command will generated a cache for next
+  show commands which will base on this cache as the zero baseline to show
+  the increment of counters.
+
+Options:
+  --clean-cache BOOLEAN  If the option of clean cache is true, next show
+                         commands will show the raw counters which based on
+                         the service booted instead of the last clear command.
+  -h, -?, --help         Show this message and exit.
+```

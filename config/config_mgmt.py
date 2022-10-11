@@ -15,7 +15,7 @@ from time import sleep as tsleep
 
 import sonic_yang
 from jsondiff import diff
-from swsssdk import port_util
+from sonic_py_common import port_util
 from swsscommon.swsscommon import SonicV2Connector, ConfigDBConnector
 from utilities_common.general import load_module_from_source
 
@@ -35,7 +35,7 @@ class ConfigMgmt():
     to verify config for the commands which are capable of change in config DB.
     '''
 
-    def __init__(self, source="configDB", debug=False, allowTablesWithoutYang=True):
+    def __init__(self, source="configDB", debug=False, allowTablesWithoutYang=True, sonicYangOptions=0):
         '''
         Initialise the class, --read the config, --load in data tree.
 
@@ -53,6 +53,7 @@ class ConfigMgmt():
             self.configdbJsonOut = None
             self.source = source
             self.allowTablesWithoutYang = allowTablesWithoutYang
+            self.sonicYangOptions = sonicYangOptions
 
             # logging vars
             self.SYSLOG_IDENTIFIER = "ConfigMgmt"
@@ -67,7 +68,7 @@ class ConfigMgmt():
         return
 
     def __init_sonic_yang(self):
-        self.sy = sonic_yang.SonicYang(YANG_DIR, debug=self.DEBUG)
+        self.sy = sonic_yang.SonicYang(YANG_DIR, debug=self.DEBUG, sonic_yang_options=self.sonicYangOptions)
         # load yang models
         self.sy.loadYangModel()
         # load jIn from config DB or from config DB json file.

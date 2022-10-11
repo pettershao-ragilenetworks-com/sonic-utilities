@@ -338,7 +338,7 @@ def expected(db, interfacename):
 @click.pass_context
 def mpls(ctx, interfacename, namespace, display):
     """Show Interface MPLS status"""
-    
+
     #Edge case: Force show frontend interfaces on single asic
     if not (multi_asic.is_multi_asic()):
        if (display == 'frontend' or display == 'all' or display is None):
@@ -346,7 +346,7 @@ def mpls(ctx, interfacename, namespace, display):
        else:
            print("Error: Invalid display option command for single asic")
            return
-    
+
     display = "all" if interfacename else display
     masic = multi_asic_util.MultiAsic(display_option=display, namespace_option=namespace)
     ns_list = masic.get_ns_list_based_on_options()
@@ -372,13 +372,13 @@ def mpls(ctx, interfacename, namespace, display):
             if (interfacename is not None):
                 if (interfacename != ifname):
                     continue
-                
+
                 intf_found = True
-            
+
             if (display != "all"):
                 if ("Loopback" in ifname):
                     continue
-                
+
                 if ifname.startswith("Ethernet") and multi_asic.is_port_internal(ifname, ns):
                     continue
 
@@ -391,11 +391,11 @@ def mpls(ctx, interfacename, namespace, display):
             if 'mpls' not in mpls_intf or mpls_intf['mpls'] == 'disable':
                 intfs_data.update({ifname: 'disable'})
             else:
-                intfs_data.update({ifname: mpls_intf['mpls']}) 
-    
+                intfs_data.update({ifname: mpls_intf['mpls']})
+
     # Check if interface is valid
     if (interfacename is not None and not intf_found):
-        ctx.fail('interface {} doesn`t exist'.format(interfacename))    
+        ctx.fail('interface {} doesn`t exist'.format(interfacename))
 
     header = ['Interface', 'MPLS State']
     body = []
@@ -558,6 +558,23 @@ def errors(verbose, period, namespace, display):
 
     clicommon.run_command(cmd, display_cmd=verbose)
 
+# 'fec-stats' subcommand ("show interfaces counters errors")
+@counters.command('fec-stats')
+@click.option('-p', '--period')
+@multi_asic_util.multi_asic_click_options
+@click.option('--verbose', is_flag=True, help="Enable verbose output")
+def fec_stats(verbose, period, namespace, display):
+    """Show interface counters fec-stats"""
+    cmd = "portstat -f"
+    if period is not None:
+        cmd += " -p {}".format(period)
+
+    cmd += " -s {}".format(display)
+    if namespace is not None:
+        cmd += " -n {}".format(namespace)
+
+    clicommon.run_command(cmd, display_cmd=verbose)
+
 # 'rates' subcommand ("show interfaces counters rates")
 @counters.command()
 @click.option('-p', '--period')
@@ -626,6 +643,39 @@ def autoneg_status(interfacename, namespace, display, verbose):
     ctx = click.get_current_context()
 
     cmd = "intfutil -c autoneg"
+
+    #ignore the display option when interface name is passed
+    if interfacename is not None:
+        interfacename = try_convert_interfacename_from_alias(ctx, interfacename)
+
+        cmd += " -i {}".format(interfacename)
+    else:
+        cmd += " -d {}".format(display)
+
+    if namespace is not None:
+        cmd += " -n {}".format(namespace)
+
+    clicommon.run_command(cmd, display_cmd=verbose)
+
+#
+# link-training group (show interfaces link-training ...)
+#
+@interfaces.group(name='link-training', cls=clicommon.AliasedGroup)
+def link_training():
+    """Show interface link-training information"""
+    pass
+
+# 'link-training status' subcommand ("show interfaces link-training status")
+@link_training.command(name='status')
+@click.argument('interfacename', required=False)
+@multi_asic_util.multi_asic_click_options
+@click.option('--verbose', is_flag=True, help="Enable verbose output")
+def link_training_status(interfacename, namespace, display, verbose):
+    """Show interface link-training status"""
+
+    ctx = click.get_current_context()
+
+    cmd = "intfutil -c link_training"
 
     #ignore the display option when interface name is passed
     if interfacename is not None:

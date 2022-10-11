@@ -6,6 +6,7 @@ from click.testing import CliRunner
 import clear.main as clear
 import show.main as show
 from .utils import get_result_and_return_code
+from utilities_common.cli import UserCache
 
 root_path = os.path.dirname(os.path.abspath(__file__))
 modules_path = os.path.dirname(root_path)
@@ -31,6 +32,23 @@ intf_counters_all = """\
 Ethernet0        D        8  2000.00 MB/s  247000.00/s     64.00%        10       100       N/A       10  1500.00 MB/s  183000.00/s     48.00%       N/A       N/A       N/A
 Ethernet4      N/A        4   204.80 KB/s     200.00/s        N/A         0     1,000       N/A       40   204.85 KB/s     201.00/s        N/A       N/A       N/A       N/A
 Ethernet8      N/A        6  1350.00 KB/s    9000.00/s        N/A       100        10       N/A       60    13.37 MB/s    9000.00/s        N/A       N/A       N/A       N/A
+"""
+
+intf_fec_counters = """\
+    IFACE    STATE    FEC_CORR    FEC_UNCORR    FEC_SYMBOL_ERR
+---------  -------  ----------  ------------  ----------------
+Ethernet0        D     130,402             3                 4
+Ethernet4      N/A     110,412             1                 0
+Ethernet8      N/A     100,317             0                 0
+"""
+
+intf_fec_counters_period = """\
+The rates are calculated within 3 seconds period
+    IFACE    STATE    FEC_CORR    FEC_UNCORR    FEC_SYMBOL_ERR
+---------  -------  ----------  ------------  ----------------
+Ethernet0        D           0             0                 0
+Ethernet4      N/A           0             0                 0
+Ethernet8      N/A           0             0                 0
 """
 
 intf_counters_period = """\
@@ -191,9 +209,8 @@ TEST_PERIOD = 3
 
 def remove_tmp_cnstat_file():
     # remove the tmp portstat
-    uid = str(os.getuid())
-    cnstat_dir = os.path.join(os.sep, "tmp", "portstat-{}".format(uid))
-    shutil.rmtree(cnstat_dir, ignore_errors=True, onerror=None)
+    cache = UserCache("portstat")
+    cache.remove_all()
 
 
 def verify_after_clear(output, expected_out):
@@ -257,6 +274,39 @@ class TestPortStat(object):
         print("result = {}".format(result))
         assert return_code == 0
         assert result == intf_counters_all
+
+    def test_show_intf_fec_counters(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            show.cli.commands["interfaces"].commands["counters"].commands["fec-stats"], [])
+        print(result.exit_code)
+        print(result.output)
+        assert result.exit_code == 0
+        assert result.output == intf_fec_counters
+
+        return_code, result = get_result_and_return_code('portstat -f')
+        print("return_code: {}".format(return_code))
+        print("result = {}".format(result))
+        assert return_code == 0
+        assert result == intf_fec_counters
+
+    def test_show_intf_fec_counters_period(self):
+        runner = CliRunner()
+        result = runner.invoke(show.cli.commands["interfaces"].commands["counters"].commands["fec-stats"],
+                                ["-p {}".format(TEST_PERIOD)])
+        print(result.exit_code)
+        print(result.output)
+        assert result.exit_code == 0
+        assert result.output == intf_fec_counters_period
+
+        return_code, result = get_result_and_return_code(
+            'portstat -f -p {}'.format(TEST_PERIOD))
+        print("return_code: {}".format(return_code))
+        print("result = {}".format(result))
+        assert return_code == 0
+        assert result == intf_fec_counters_period
+
+
 
     def test_show_intf_counters_period(self):
         runner = CliRunner()

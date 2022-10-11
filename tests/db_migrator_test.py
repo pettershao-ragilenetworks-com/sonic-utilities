@@ -4,7 +4,7 @@ import sys
 
 from deepdiff import DeepDiff
 
-from swsssdk import SonicV2Connector
+from swsscommon.swsscommon import SonicV2Connector
 from sonic_py_common import device_info
 
 from .mock_tables import dbconnector
@@ -43,9 +43,9 @@ class TestMellanoxBufferMigrator(object):
         cls.config_db_tables_to_verify = ['BUFFER_POOL', 'BUFFER_PROFILE', 'BUFFER_PG', 'DEFAULT_LOSSLESS_BUFFER_PARAMETER', 'LOSSLESS_TRAFFIC_PATTERN', 'VERSIONS', 'DEVICE_METADATA']
         cls.appl_db_tables_to_verify = ['BUFFER_POOL_TABLE:*', 'BUFFER_PROFILE_TABLE:*', 'BUFFER_PG_TABLE:*', 'BUFFER_QUEUE:*', 'BUFFER_PORT_INGRESS_PROFILE_LIST:*', 'BUFFER_PORT_EGRESS_PROFILE_LIST:*']
         cls.warm_reboot_from_version = 'version_1_0_6'
-        cls.warm_reboot_to_version = 'version_2_0_3'
+        cls.warm_reboot_to_version = 'version_3_0_3'
 
-        cls.version_list = ['version_1_0_1', 'version_1_0_2', 'version_1_0_3', 'version_1_0_4', 'version_1_0_5', 'version_1_0_6', 'version_2_0_0', 'version_2_0_3']
+        cls.version_list = ['version_1_0_1', 'version_1_0_2', 'version_1_0_3', 'version_1_0_4', 'version_1_0_5', 'version_1_0_6', 'version_3_0_0', 'version_3_0_3']
         os.environ['UTILITIES_UNIT_TESTING'] = "2"
 
     @classmethod
@@ -211,7 +211,7 @@ class TestMellanoxBufferMigrator(object):
         dbmgtr = db_migrator.DBMigrator(None)
         dbmgtr.migrate()
         expected_db = self.mock_dedicated_config_db(db_after_migrate)
-        advance_version_for_expected_database(dbmgtr.configDB, expected_db.cfgdb, 'version_2_0_3')
+        advance_version_for_expected_database(dbmgtr.configDB, expected_db.cfgdb, 'version_3_0_3')
         tables_to_verify = self.config_db_tables_to_verify
         tables_to_verify.extend(['BUFFER_QUEUE', 'BUFFER_PORT_INGRESS_PROFILE_LIST', 'BUFFER_PORT_EGRESS_PROFILE_LIST'])
         self.check_config_db(dbmgtr.configDB, expected_db.cfgdb, tables_to_verify)
@@ -241,7 +241,7 @@ class TestAutoNegMigrator(object):
 
         dbconnector.dedicated_dbs['CONFIG_DB'] = os.path.join(mock_db_path, 'config_db', 'port-an-expected')
         expected_db = Db()
-        advance_version_for_expected_database(dbmgtr.configDB, expected_db.cfgdb, 'version_2_0_1')
+        advance_version_for_expected_database(dbmgtr.configDB, expected_db.cfgdb, 'version_3_0_1')
 
         assert dbmgtr.configDB.get_table('PORT') == expected_db.cfgdb.get_table('PORT')
         assert dbmgtr.configDB.get_table('VERSIONS') == expected_db.cfgdb.get_table('VERSIONS')
@@ -289,7 +289,7 @@ class TestLacpKeyMigrator(object):
         dbmgtr.migrate()
         dbconnector.dedicated_dbs['CONFIG_DB'] = os.path.join(mock_db_path, 'config_db', 'portchannel-expected')
         expected_db = Db()
-        advance_version_for_expected_database(dbmgtr.configDB, expected_db.cfgdb, 'version_2_0_2')
+        advance_version_for_expected_database(dbmgtr.configDB, expected_db.cfgdb, 'version_3_0_2')
 
         assert dbmgtr.configDB.get_table('PORTCHANNEL') == expected_db.cfgdb.get_table('PORTCHANNEL')
         assert dbmgtr.configDB.get_table('VERSIONS') == expected_db.cfgdb.get_table('VERSIONS')
@@ -335,8 +335,8 @@ class TestQosDBFieldValueReferenceRemoveMigrator(object):
                 assert expected.get_all(expected.APPL_DB, key) == result.get_all(result.APPL_DB, key)
 
     def test_qos_buffer_migrator_for_cold_reboot(self):
-        db_before_migrate = 'qos_tables_db_field_value_reference_format_2_0_1'
-        db_after_migrate = 'qos_tables_db_field_value_reference_format_2_0_3'
+        db_before_migrate = 'qos_tables_db_field_value_reference_format_3_0_1'
+        db_after_migrate = 'qos_tables_db_field_value_reference_format_3_0_3'
         db = self.mock_dedicated_config_db(db_before_migrate)
         _ = self.mock_dedicated_appl_db(db_before_migrate)
         import db_migrator
@@ -344,7 +344,8 @@ class TestQosDBFieldValueReferenceRemoveMigrator(object):
         dbmgtr.migrate()
         expected_db = self.mock_dedicated_config_db(db_after_migrate)
         expected_appl_db = self.mock_dedicated_appl_db(db_after_migrate)
-        advance_version_for_expected_database(dbmgtr.configDB, expected_db.cfgdb, 'version_2_0_3')
+        advance_version_for_expected_database(dbmgtr.configDB, expected_db.cfgdb, 'version_3_0_3')
+
         self.check_config_db(dbmgtr.configDB, expected_db.cfgdb)
         self.check_appl_db(dbmgtr.appDB, expected_appl_db)
         self.clear_dedicated_mock_dbs()
@@ -373,3 +374,39 @@ class TestPfcEnableMigrator(object):
 
         diff = DeepDiff(resulting_table, expected_table, ignore_order=True)
         assert not diff
+
+class TestGlobalDscpToTcMapMigrator(object):
+    @classmethod
+    def setup_class(cls):
+        os.environ['UTILITIES_UNIT_TESTING'] = "2"
+
+    @classmethod
+    def teardown_class(cls):
+        os.environ['UTILITIES_UNIT_TESTING'] = "0"
+        dbconnector.dedicated_dbs['CONFIG_DB'] = None
+
+    def test_global_dscp_to_tc_map_migrator(self):
+        dbconnector.dedicated_dbs['CONFIG_DB'] = os.path.join(mock_db_path, 'config_db', 'qos_map_table_global_input')
+        import db_migrator
+        dbmgtr = db_migrator.DBMigrator(None)
+        dbmgtr.asic_type = "broadcom"
+        dbmgtr.hwsku = "vs"
+        dbmgtr.migrate()
+        dbconnector.dedicated_dbs['CONFIG_DB'] = os.path.join(mock_db_path, 'config_db', 'qos_map_table_global_expected')
+        expected_db = Db()
+
+        resulting_table = dbmgtr.configDB.get_table('PORT_QOS_MAP')
+        expected_table = expected_db.cfgdb.get_table('PORT_QOS_MAP')
+
+        diff = DeepDiff(resulting_table, expected_table, ignore_order=True)
+        assert not diff
+
+        # Check port_qos_map|global is not generated on mellanox asic
+        dbconnector.dedicated_dbs['CONFIG_DB'] = os.path.join(mock_db_path, 'config_db', 'qos_map_table_global_input')
+        dbmgtr_mlnx = db_migrator.DBMigrator(None)
+        dbmgtr_mlnx.asic_type = "mellanox"
+        dbmgtr_mlnx.hwsku = "vs"
+        dbmgtr_mlnx.migrate()
+        resulting_table = dbmgtr_mlnx.configDB.get_table('PORT_QOS_MAP')
+        assert resulting_table == {}
+

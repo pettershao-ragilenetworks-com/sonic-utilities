@@ -1,6 +1,23 @@
 from dump.match_infra import MatchRequest
 from dump.helper import handle_multiple_keys_matched_error
 
+# Return dict helper methods
+
+def check_error(ret):
+    """ Check if the match request failed """
+    if ret["error"]:
+        return True, ret["error"]
+    else:
+        return False, ""
+
+def get_matched_keys(ret):
+    """ Return Matched Keys """
+    failed, err_str = check_error(ret)
+    if not failed:
+        return ret["keys"], ""
+    else:
+        return [], err_str
+
 # Port Helper Methods
 
 def fetch_port_oid(match_engine, port_name, ns):
@@ -27,7 +44,7 @@ def fetch_vlan_oid(match_engine, vlan_name, ns):
         vlan_num = int(vlan_name[4:])
 
     # Find the table named "ASIC_STATE:SAI_OBJECT_TYPE_VLAN:*" in which SAI_VLAN_ATTR_VLAN_ID = vlan_num
-    req = MatchRequest(db="ASIC_DB", table="ASIC_STATE:SAI_OBJECT_TYPE_VLAN", key_pattern="*", field="SAI_VLAN_ATTR_VLAN_ID", 
+    req = MatchRequest(db="ASIC_DB", table="ASIC_STATE:SAI_OBJECT_TYPE_VLAN", key_pattern="*", field="SAI_VLAN_ATTR_VLAN_ID",
                     value=str(vlan_num), ns=ns)
     ret = match_engine.fetch(req)
     vlan_oid = ""
@@ -83,3 +100,15 @@ def fetch_lag_oid(match_engine, lag_name, ns):
                                                lag_oids matched {}".format(lag_name, lag_type_oids), lag_type_oids[-1])
         lag_type_oid = lag_type_oids[-1]
     return lag_type_oid
+
+# ACL helpers
+
+def fetch_acl_counter_oid(match_engine, acl_table_name, acl_rule_name, ns):
+    """
+    Fetch ACL counter OID from COUNTERS DB for a particular rule
+    """
+    counters_db = match_engine.get_redis_source_adapter()
+    counters_db.connect("COUNTERS_DB", ns)
+    counters = counters_db.hgetall("COUNTERS_DB", "ACL_COUNTER_RULE_MAP")
+    counter_oid = counters.get(f"{acl_table_name}{counters_db.get_separator('COUNTERS_DB')}{acl_rule_name}")
+    return counter_oid
